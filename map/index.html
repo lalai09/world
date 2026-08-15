@@ -288,14 +288,14 @@
     <div id="invBar"></div>
 
     <div id="msgBox"></div>
-    <div id="helpHint">demo</div>
+    <div id="helpHint">bấm l để tương tác</div>
 
     <div id="fishGame">
       <div id="fishBarWrap">
         <div id="fishZone"></div>
         <div id="fishCursor"></div>
       </div>
-      <div id="fishHint">Nhấn đúng lúc con trỏ vào vùng xanh!</div>
+      <div id="fishHint">Nhấn</div>
       <div id="fishProgWrap"><div id="fishProg"></div></div>
     </div>
 
@@ -304,7 +304,7 @@
       <div id="joyBase"><div id="joyStick"></div></div>
     </div>
     <div id="hotbar"></div>
-    <div id="interactBtn">Dùng</div>
+    <div id="interactBtn">tt</div>
 
     <div id="shopOverlay">
       <div id="shopPanel">
@@ -1004,7 +1004,7 @@
     positionFishGameOverPlayer();
     const barW = fishBarWrapEl.clientWidth;
 
-    let requiredHits = 3;   // số lần bấm trúng cần để câu được cá
+    let requiredHits = 4;   // số lần bấm trúng cần để câu được cá
     let currentHits = 0;
     let missCount = 0;
     const maxMisses = 3;    // trượt quá số lần này thì cá sổng
@@ -1025,7 +1025,7 @@
     randomizeZone();
     fishCursorEl.style.left = '0px';
     fishProgEl.style.width = '0%';
-    fishHintEl.textContent = `🎣 Bấm "Dùng" đúng lúc! (0/${requiredHits})`;
+    fishHintEl.textContent = ` (0/${requiredHits})`;
 
     function updateProg() {
       fishProgEl.style.width = Math.round((currentHits/requiredHits)*100) + '%';
@@ -1040,14 +1040,14 @@
         updateProg();
         if (typeof sfx !== 'undefined') sfx.fishHit();
         if (currentHits >= requiredHits) { endFishMinigame(true); return; }
-        fishHintEl.textContent = `✅ Đúng nhịp! (${currentHits}/${requiredHits})`;
+        fishHintEl.textContent = `✅  (${currentHits}/${requiredHits})`;
         randomizeZone(); // đổi vị trí vùng xanh cho lượt kéo tiếp theo
       } else {
         currentHits = Math.max(0, currentHits - 1);
         updateProg();
         missCount++;
         if (typeof sfx !== 'undefined') sfx.error();
-        fishHintEl.textContent = `❌ Nhấn lệch nhịp! Cẩn thận, cá sắp sổng (${currentHits}/${requiredHits})`;
+        fishHintEl.textContent = `❌ (${currentHits}/${requiredHits})`;
         if (missCount >= maxMisses) { endFishMinigame(false); return; }
       }
     }
