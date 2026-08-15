@@ -1109,7 +1109,14 @@
     if (typeof scheduleSave === 'function') scheduleSave();
   }
 
+  // Khoảng cách tối thiểu giữa 2 lần chặt cây / đào đá liên tiếp (mili-giây)
+  const GATHER_COOLDOWN_MS = 750;
+  let lastGatherAt = 0;
   function gatherNode(node) {
+    const now = Date.now();
+    if (now - lastGatherAt < GATHER_COOLDOWN_MS) return; // còn trong thời gian hồi chiêu, bỏ qua
+    lastGatherAt = now;
+
     const style = RESOURCE_STYLE[node.type];
     const usingRightTool = (node.type === 'wood' && equipped === 'axe') || (node.type === 'stone' && equipped === 'pickaxe');
     // Không dụng cụ: cây 5 lần (hp15/dmg3), đá 6 lần (hp12/dmg2)
