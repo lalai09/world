@@ -120,33 +120,41 @@
   }
   #fishGame {
     position:absolute; z-index:25; display:none; flex-direction:column; align-items:center;
-    width:118px; pointer-events:none;
+    width:170px; pointer-events:none;
+    transform:translate(-50%, -100%);
+    background:rgba(8,12,20,.85); border:2px solid rgba(255,255,255,.6);
+    border-radius:12px; padding:9px 11px 10px; box-shadow:0 4px 18px rgba(0,0,0,.55);
+  }
+  #fishGame::after {
+    content:''; position:absolute; left:50%; bottom:-9px; transform:translateX(-50%);
+    border-left:8px solid transparent; border-right:8px solid transparent;
+    border-top:9px solid rgba(8,12,20,.85);
   }
   #fishBarWrap {
-    position:relative; width:100%; height:14px;
-    background:rgba(5,15,25,.9); border-radius:8px;
-    border:2px solid rgba(255,255,255,.3); overflow:hidden;
+    position:relative; width:100%; height:22px;
+    background:rgba(5,15,25,.95); border-radius:10px;
+    border:2px solid rgba(255,255,255,.5); overflow:hidden;
   }
   #fishZone {
     position:absolute; top:1px; bottom:1px;
-    background:#3ddc84; border-left:1px solid #9dffc8; border-right:1px solid #9dffc8;
-    border-radius:3px;
+    background:#3ddc84; border-left:2px solid #eaffef; border-right:2px solid #eaffef;
+    border-radius:5px; box-shadow:0 0 10px 2px rgba(61,220,132,.9), inset 0 0 6px rgba(255,255,255,.6);
   }
   #fishCursor {
-    position:absolute; top:0; bottom:0; width:3px;
-    background:#111; border-radius:2px;
+    position:absolute; top:-2px; bottom:-2px; width:5px;
+    background:#fff; border-radius:3px; box-shadow:0 0 8px 3px rgba(255,255,255,.95);
   }
   #fishHint {
-    margin-top:4px; color:#dfe9f5; font-size:10px; text-align:center;
-    text-shadow:0 1px 4px rgba(0,0,0,.8); font-weight:bold;
-    line-height:1.25;
+    margin-top:7px; color:#fff; font-size:12px; text-align:center;
+    text-shadow:0 1px 4px rgba(0,0,0,.95), 0 0 3px #000; font-weight:bold;
+    line-height:1.3;
   }
   #fishProgWrap {
-    margin-top:5px; width:100%; height:6px;
-    background:rgba(5,15,25,.9); border-radius:4px;
-    border:2px solid rgba(255,255,255,.25); overflow:hidden;
+    margin-top:6px; width:100%; height:9px;
+    background:rgba(5,15,25,.95); border-radius:6px;
+    border:2px solid rgba(255,255,255,.45); overflow:hidden;
   }
-  #fishProg { height:100%; width:0%; background:#4caf50; transition:width .08s linear; }
+  #fishProg { height:100%; width:0%; background:linear-gradient(90deg,#4caf50,#8bff9e); transition:width .08s linear; }
 
   #helpHint {
     position:absolute; bottom:8px; left:10px; color:#fff;
@@ -963,20 +971,21 @@
     }
     return { x, y };
   }
-  function positionFishGameOverRodSlot() {
-    const hotbarEl = document.getElementById('hotbar');
+  // Đặt thanh câu cá NGAY TRÊN ĐẦU nhân vật trong thế giới (không phải trên hotbar),
+  // dùng tọa độ camera giống hệt lúc vẽ nhân vật trên canvas, rồi quy đổi từ độ phân
+  // giải canvas (960x540 cố định) sang px CSS thực tế (canvas có thể bị co giãn theo màn hình).
+  function positionFishGameOverPlayer() {
     const frame = document.getElementById('gameFrame');
-    if (!hotbarEl || !frame) return;
-    const off = offsetWithin(hotbarEl, frame);
-    const gameW = fishGameEl.offsetWidth || 118;
-    const gameH = fishGameEl.offsetHeight || 40;
-    let left = off.x + hotbarEl.offsetWidth / 2 - gameW / 2;
-    left = Math.max(4, Math.min(left, frame.clientWidth - gameW - 4));
-    let top = off.y - gameH - 8; // phía trên cả 3 ô công cụ
-    top = Math.max(4, top);
-    fishGameEl.style.left = left + 'px';
+    if (!frame || !canvas) return;
+    const scaleX = canvas.clientWidth / canvas.width;
+    const scaleY = canvas.clientHeight / canvas.height;
+    const canvasOff = offsetWithin(canvas, frame);
+    const sx = (player.x - camera.x) * scaleX + canvasOff.x;
+    const sy = (player.y - camera.y) * scaleY + canvasOff.y;
+    // neo tâm-dưới của khung ngay phía trên đầu nhân vật (translate(-50%,-100%) trong CSS lo phần căn giữa)
+    fishGameEl.style.left = sx + 'px';
+    fishGameEl.style.top = (sy - 34) + 'px';
     fishGameEl.style.bottom = '';
-    fishGameEl.style.top = top + 'px';
   }
 
   function doFishing() {
@@ -992,7 +1001,7 @@
 
   function startFishMinigame() {
     fishGameEl.style.display = 'flex';
-    positionFishGameOverRodSlot();
+    positionFishGameOverPlayer();
     const barW = fishBarWrapEl.clientWidth;
 
     let requiredHits = 3;   // số lần bấm trúng cần để câu được cá
@@ -1055,6 +1064,7 @@
       if (pos < 0) { pos = 0; dir = 1; }
       if (pos > barW) { pos = barW; dir = -1; }
       fishCursorEl.style.left = pos + 'px';
+      positionFishGameOverPlayer(); // bám theo đầu nhân vật nếu camera/nhân vật di chuyển
       fishAnim = requestAnimationFrame(frame);
     }
     fishAnim = requestAnimationFrame(frame);
