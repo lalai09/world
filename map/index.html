@@ -344,6 +344,20 @@
   };
   const TILE_SOLID = { 1:true, 4:true }; // tile không đi qua được (nước, đá)
 
+  // ---------- PRNG CÓ SEED CỐ ĐỊNH ----------
+  // Dùng để sinh bản đồ + vị trí cây/đá GIỐNG HỆT NHAU trên mọi máy, mọi người chơi.
+  // (Trước đây dùng Math.random() thuần nên mỗi người vào game thấy một bản đồ khác nhau)
+  function mulberry32(seed) {
+    return function() {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const WORLD_SEED = 20260815; // seed cố định của bản đồ chung
+  const worldRng = mulberry32(WORLD_SEED);
+
   // Sinh bản đồ ngẫu nhiên đơn giản dùng noise giả (value noise nhẹ)
   function generateWorld() {
     const map = [];
@@ -368,22 +382,22 @@
     // Rừng góc trên trái
     for (let y = 2; y < 14; y++) {
       for (let x = 2; x < 16; x++) {
-        if (Math.random() < 0.55) map[y][x] = 3;
+        if (worldRng() < 0.55) map[y][x] = 3;
       }
     }
 
     // Vùng đá góc dưới phải
     for (let y = 28; y < 38; y++) {
       for (let x = 44; x < 58; x++) {
-        if (Math.random() < 0.4) map[y][x] = 4;
+        if (worldRng() < 0.4) map[y][x] = 4;
       }
     }
 
     // Rải đá lẻ tẻ làm chướng ngại vật
     for (let i = 0; i < 80; i++) {
-      const x = Math.floor(Math.random() * WORLD_COLS);
-      const y = Math.floor(Math.random() * WORLD_ROWS);
-      if (map[y][x] === 0 && Math.random() < 0.5) map[y][x] = 4;
+      const x = Math.floor(worldRng() * WORLD_COLS);
+      const y = Math.floor(worldRng() * WORLD_ROWS);
+      if (map[y][x] === 0 && worldRng() < 0.5) map[y][x] = 4;
     }
 
     return map;
@@ -409,13 +423,16 @@
   // ---------- TÀI NGUYÊN THU THẬP ĐƯỢC (CÂY, ĐÁ) ----------
   // type: 'wood' (chặt cây) | 'stone' (đào đá)
   // hp: số lần đánh cần để phá; respawn: giây hồi sinh sau khi phá xong
+  // id của mỗi node = thứ tự sinh ra (dùng worldRng có seed cố định nên thứ tự này
+  // GIỐNG HỆT NHAU trên mọi máy) -> dùng làm khoá đồng bộ trạng thái qua Firebase.
   const resourceNodes = [];
   function spawnResourceNodes() {
     // Cây rải quanh vùng rừng (loại tile 3) + rải thêm lẻ tẻ
     for (let ty = 0; ty < WORLD_ROWS; ty++) {
       for (let tx = 0; tx < WORLD_COLS; tx++) {
-        if (worldMap[ty][tx] === 3 && Math.random() < 0.5) {
+        if (worldMap[ty][tx] === 3 && worldRng() < 0.5) {
           resourceNodes.push({
+            id: resourceNodes.length,
             type:'wood', tx, ty,
             x: tx*TILE + TILE/2, y: ty*TILE + TILE/2,
             hp:15, maxHp:15, alive:true, respawnAt:0
@@ -426,8 +443,9 @@
     // Đá rải quanh vùng đá (loại tile 4)
     for (let ty = 0; ty < WORLD_ROWS; ty++) {
       for (let tx = 0; tx < WORLD_COLS; tx++) {
-        if (worldMap[ty][tx] === 4 && Math.random() < 0.6) {
+        if (worldMap[ty][tx] === 4 && worldRng() < 0.6) {
           resourceNodes.push({
+            id: resourceNodes.length,
             type:'stone', tx, ty,
             x: tx*TILE + TILE/2, y: ty*TILE + TILE/2,
             hp:12, maxHp:12, alive:true, respawnAt:0
@@ -438,9 +456,11 @@
   }
   spawnResourceNodes();
 
+  // Thời gian hồi (giây) sau khi bị phá xong: 9 phút = 540 giây, ÁP DỤNG CHUNG
+  // cho mọi người chơi (đồng bộ qua Firebase, không phải riêng từng máy).
   const RESOURCE_STYLE = {
-    wood:  { icon:'🌳', deadIcon:'🪵', give:'wood',  giveName:'Gỗ',  giveIcon:'🪵', amount:[1,1], respawn: 60 },
-    stone: { icon:'🪨', deadIcon:'⛏️', give:'stone', giveName:'Đá',  giveIcon:'🪨', amount:[1,1], respawn: 60 }
+    wood:  { icon:'🌳', deadIcon:'🪵', give:'wood',  giveName:'Gỗ',  giveIcon:'🪵', amount:[1,1], respawn: 540 },
+    stone: { icon:'🪨', deadIcon:'⛏️', give:'stone', giveName:'Đá',  giveIcon:'🪨', amount:[1,1], respawn: 540 }
   };
 
   // ---------- TÚI ĐỒ (INVENTORY) ----------
@@ -508,7 +528,7 @@
 
   // ---------- DỮ LIỆU CÂY TRỒNG (thời gian lớn tính bằng giây, sản lượng thu hoạch) ----------
   const CROP_META = {
-    seed_rice: { growTime:300, yieldMin:1, yieldMax:1, harvestId:'rice' },
+    seed_rice: { growTime:400, yieldMin:1, yieldMax:1, harvestId:'rice' }, // 9 phút
   };
   const SEED_PRIORITY = ['seed_rice']; // thứ tự ưu tiên tự trồng
 
@@ -1071,12 +1091,14 @@
 
     if (node.hp <= 0) {
       node.alive = false;
-      node.respawnAt = performance.now() + style.respawn * 1000;
+      node.respawnAt = Date.now() + style.respawn * 1000;
       const n = style.amount[0] + Math.floor(Math.random() * (style.amount[1]-style.amount[0]+1));
       addItem(style.give, n);
       showMessage(`${style.icon} Nhận ${n} ${style.giveIcon} ${style.giveName}!`, 1400);
       // Chỉ trừ 1 độ bền khi chặt/đào hết 1 cây hoặc 1 đá
       if (usingRightTool) wearTool(node.type === 'wood' ? 'axe' : 'pickaxe');
+      // Báo cho MỌI người chơi khác biết node này vừa hết -> họ cũng không thấy nữa
+      broadcastNodeGathered(node);
     }
   }
 
@@ -1110,11 +1132,12 @@
   }
 
   function updateResourceNodes() {
-    const now = performance.now();
+    const now = Date.now();
     for (const node of resourceNodes) {
       if (!node.alive && now >= node.respawnAt) {
         node.alive = true;
         node.hp = node.maxHp;
+        broadcastNodeRespawned(node);
       }
     }
   }
@@ -1724,6 +1747,43 @@
     });
 
     initChat();
+    initNodesSync();
+  }
+
+  // ---------- ĐỒNG BỘ CÂY / ĐÁ DÙNG CHUNG CHO MỌI NGƯỜI CHƠI ----------
+  // Bản đồ + vị trí node được sinh CỐ ĐỊNH (seed) nên node.id trùng nhau trên mọi máy.
+  // Khi 1 người phá xong 1 cây/đá, trạng thái "đã mất + giờ hồi" được ghi lên Firebase
+  // để tất cả người chơi khác thấy nó biến mất ngay lập tức, và tự hồi lại đúng giờ.
+  let nodesRef = null;
+  function initNodesSync() {
+    if (!myKey || nodesRef) return;
+    nodesRef = db.ref('game_open_world_room/' + WORLD_ROOM_ID + '/nodes');
+    nodesRef.on('child_added', snap => applyNodeState(snap.key, snap.val()));
+    nodesRef.on('child_changed', snap => applyNodeState(snap.key, snap.val()));
+    nodesRef.on('child_removed', snap => applyNodeState(snap.key, null));
+  }
+  function applyNodeState(id, val) {
+    const node = resourceNodes[id];
+    if (!node) return;
+    if (val && val.alive === false) {
+      node.alive = false;
+      node.hp = 0;
+      node.respawnAt = typeof val.respawnAt === 'number'
+        ? val.respawnAt
+        : Date.now() + RESOURCE_STYLE[node.type].respawn * 1000;
+    } else if (!node.alive) {
+      // Bản ghi đã bị xoá (ai đó xác nhận đã hồi) -> hồi lại tại chỗ nếu chưa hồi
+      node.alive = true;
+      node.hp = node.maxHp;
+    }
+  }
+  function broadcastNodeGathered(node) {
+    if (!nodesRef) return;
+    nodesRef.child(String(node.id)).set({ alive:false, respawnAt: node.respawnAt }).catch(()=>{});
+  }
+  function broadcastNodeRespawned(node) {
+    if (!nodesRef) return;
+    nodesRef.child(String(node.id)).remove().catch(()=>{});
   }
 
   // ---------- CHAT CHUNG (BONG BÓNG GÓC MÀN HÌNH) ----------
