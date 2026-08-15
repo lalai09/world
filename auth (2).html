@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng nhập / Đăng ký</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: fixed;
+      width: 100%;
+      top: 0;
+      left: 0;
+    }
+
+    .auth-container {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 420px;
+      padding: 40px 36px;
+      position: relative;
+    }
+
+    .auth-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .auth-header .logo {
+      width: auto;
+      min-width: 64px;
+      height: 48px;
+      padding: 0 18px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 20px;
+      color: white;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+
+    .auth-header h1 {
+      font-size: 24px;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+
+    .auth-header p {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: #f3f4f6;
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 28px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+      color: #6b7280;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .tab.active {
+      background: #fff;
+      color: #667eea;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 15px;
+      color: #1f2937;
+      transition: all 0.2s ease;
+      outline: none;
+      background: #f9fafb;
+    }
+
+    .form-group input:focus {
+      border-color: #667eea;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    }
+
+    .form-group input::placeholder {
+      color: #9ca3af;
+    }
+
+    .password-hint {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 6px;
+    }
+
+    .options {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+
+    .remember {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #4b5563;
+      cursor: pointer;
+    }
+
+    .remember input {
+      width: 16px;
+      height: 16px;
+      accent-color: #667eea;
+      cursor: pointer;
+    }
+
+    .forgot {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .forgot:hover {
+      color: #764ba2;
+      text-decoration: underline;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+    }
+
+    .btn-submit:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .message {
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      display: none;
+      text-align: center;
+    }
+
+    .message.error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+      display: block;
+    }
+
+    .message.success {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+      display: block;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 24px 0;
+      color: #9ca3af;
+      font-size: 13px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e5e7eb;
+    }
+
+    .divider span {
+      padding: 0 12px;
+    }
+
+    .social-login {
+      display: flex;
+      gap: 12px;
+    }
+
+    .social-btn {
+      flex: 1;
+      padding: 12px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .social-btn:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
+
+    .form-panel {
+      display: none;
+    }
+
+    .form-panel.active {
+      display: block;
+    }
+
+    @media (max-width: 480px) {
+      .auth-container {
+        padding: 32px 24px;
+      }
+
+      .social-login {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-header">
+      <div class="logo">World</div>
+      <h1 id="pageTitle">Đăng nhập</h1>
+      <p id="pageSubtitle">Chào mừng bạn quay trở lại!</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button type="button" class="tab active" data-tab="login">Đăng nhập</button>
+      <button type="button" class="tab" data-tab="register">Đăng ký</button>
+    </div>
+
+    <div id="message" class="message"></div>
+
+    <!-- ===== FORM ĐĂNG NHẬP ===== -->
+    <div id="loginPanel" class="form-panel active">
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="loginUsername">Tên đăng nhập</label>
+          <input type="text" id="loginUsername" placeholder="Nhập tên đăng nhập" required autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label for="loginPassword">Mật khẩu</label>
+          <input type="password" id="loginPassword" placeholder="Nhập mật khẩu" required autocomplete="current-password">
+        </div>
+
+        <div class="options">
+          <label class="remember">
+            <input type="checkbox" id="remember">
+            Ghi nhớ đăng nhập
+          </label>
+          <button type="button" class="forgot" id="forgotPassword">Quên mật khẩu?</button>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btnLogin">Đăng nhập</button>
+      </form>
+    </div>
+
+    <!-- ===== FORM ĐĂNG KÝ ===== -->
+    <div id="registerPanel" class="form-panel">
+      <form id="registerForm">
+        <div class="form-group">
+          <label for="registerUsername">Tên đăng nhập</label>
+          <input type="text" id="registerUsername" placeholder="Nhập tên đăng nhập" required autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label for="registerPassword">Mật khẩu</label>
+          <input type="password" id="registerPassword" placeholder="Nhập mật khẩu" required minlength="6" autocomplete="new-password">
+          <p class="password-hint">Tối thiểu 6 ký tự</p>
+        </div>
+
+        <div class="form-group">
+          <label for="confirmPassword">Xác nhận mật khẩu</label>
+          <input type="password" id="confirmPassword" placeholder="Nhập lại mật khẩu" required autocomplete="new-password">
+        </div>
+
+        <button type="submit" class="btn-submit" id="btnRegister">Đăng ký</button>
+      </form>
+    </div>
+
+    <div class="divider">
+      <span>hoặc tiếp tục với</span>
+    </div>
+
+    <div class="social-login">
+      <button type="button" class="social-btn" id="btnGoogle">
+        <svg width="18" height="18" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Google
+      </button>
+      <button type="button" class="social-btn" id="btnFacebook">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2">
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+        </svg>
+        Facebook
+      </button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+    import { 
+      getAuth, 
+      signInWithEmailAndPassword, 
+      createUserWithEmailAndPassword,
+      signInWithPopup,
+      GoogleAuthProvider,
+      FacebookAuthProvider,
+      sendPasswordResetEmail,
+      setPersistence,
+      browserLocalPersistence,
+      browserSessionPersistence
+    } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBvI-JLyimy7e_IXxsaHDDCG_f1lNBkQ2k",
+      authDomain: "world-e431e.firebaseapp.com",
+      databaseURL: "https://world-e431e-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "world-e431e",
+      storageBucket: "world-e431e.firebasestorage.app",
+      messagingSenderId: "382023798145",
+      appId: "1:382023798145:web:9af37cb2131416f2e96c80",
+      measurementId: "G-CVHYP9KRH0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // Elements
+    const tabs = document.querySelectorAll('.tab');
+    const loginPanel = document.getElementById('loginPanel');
+    const registerPanel = document.getElementById('registerPanel');
+    const pageTitle = document.getElementById('pageTitle');
+    const pageSubtitle = document.getElementById('pageSubtitle');
+    const messageEl = document.getElementById('message');
+    const btnLogin = document.getElementById('btnLogin');
+    const btnRegister = document.getElementById('btnRegister');
+
+    // Chuyển tab
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        clearMessage();
+
+        if (tab.dataset.tab === 'login') {
+          loginPanel.classList.add('active');
+          registerPanel.classList.remove('active');
+          pageTitle.textContent = 'Đăng nhập';
+          pageSubtitle.textContent = 'Chào mừng bạn quay trở lại!';
+        } else {
+          loginPanel.classList.remove('active');
+          registerPanel.classList.add('active');
+          pageTitle.textContent = 'Đăng ký';
+          pageSubtitle.textContent = 'Tạo tài khoản mới của bạn';
+        }
+      });
+    });
+
+    function showMessage(text, type = 'error') {
+      messageEl.textContent = text;
+      messageEl.className = `message ${type}`;
+    }
+
+    function clearMessage() {
+      messageEl.className = 'message';
+      messageEl.textContent = '';
+    }
+
+    // Chuyển tên đăng nhập thành email nội bộ cho Firebase
+    function toEmail(username) {
+      return username.trim().toLowerCase().replace(/\s+/g, '') + '@world.app';
+    }
+
+    // ===== ĐĂNG NHẬP =====
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearMessage();
+
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const remember = document.getElementById('remember').checked;
+
+      if (!username || !password) {
+        showMessage('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu');
+        return;
+      }
+
+      if (username.includes('@') || username.includes(' ')) {
+        showMessage('Tên đăng nhập không được chứa khoảng trắng hoặc ký tự @');
+        return;
+      }
+
+      const email = toEmail(username);
+
+      btnLogin.disabled = true;
+      btnLogin.textContent = 'Đang đăng nhập...';
+
+      try {
+        const persistence = remember ? browserLocalPersistence : browserSessionPersistence;
+        await setPersistence(auth, persistence);
+
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        showMessage(`Đăng nhập thành công! Xin chào ${username}`, 'success');
+      } catch (error) {
+        let msg = 'Đăng nhập thất bại. Vui lòng thử lại.';
+        switch (error.code) {
+          case 'auth/user-disabled':
+            msg = 'Tài khoản đã bị vô hiệu hóa.';
+            break;
+          case 'auth/user-not-found':
+            msg = 'Không tìm thấy tài khoản này.';
+            break;
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential':
+            msg = 'Tên đăng nhập hoặc mật khẩu không đúng.';
+            break;
+          case 'auth/too-many-requests':
+            msg = 'Quá nhiều lần thử. Vui lòng thử lại sau.';
+            break;
+        }
+        showMessage(msg);
+      } finally {
+        btnLogin.disabled = false;
+        btnLogin.textContent = 'Đăng nhập';
+      }
+    });
+
+    // ===== ĐĂNG KÝ =====
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearMessage();
+
+      const username = document.getElementById('registerUsername').value.trim();
+      const password = document.getElementById('registerPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+
+      if (!username || !password || !confirmPassword) {
+        showMessage('Vui lòng điền đầy đủ thông tin.');
+        return;
+      }
+
+      if (username.includes('@') || username.includes(' ')) {
+        showMessage('Tên đăng nhập không được chứa khoảng trắng hoặc ký tự @');
+        return;
+      }
+
+      if (username.length < 3) {
+        showMessage('Tên đăng nhập phải có ít nhất 3 ký tự.');
+        return;
+      }
+
+      if (password.length < 6) {
+        showMessage('Mật khẩu phải có ít nhất 6 ký tự.');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        showMessage('Mật khẩu xác nhận không khớp.');
+        return;
+      }
+
+      const email = toEmail(username);
+
+      btnRegister.disabled = true;
+      btnRegister.textContent = 'Đang đăng ký...';
+
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        showMessage(`Đăng ký thành công! Xin chào ${username}`, 'success');
+
+        // Tự chuyển sang tab Đăng nhập sau 1.5s
+        setTimeout(() => {
+          document.querySelector('.tab[data-tab="login"]').click();
+          document.getElementById('loginUsername').value = username;
+        }, 1500);
+      } catch (error) {
+        let msg = 'Đăng ký thất bại. Vui lòng thử lại.';
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            msg = 'Tên đăng nhập này đã được sử dụng.';
+            break;
+          case 'auth/weak-password':
+            msg = 'Mật khẩu quá yếu (tối thiểu 6 ký tự).';
+            break;
+        }
+        showMessage(msg);
+      } finally {
+        btnRegister.disabled = false;
+        btnRegister.textContent = 'Đăng ký';
+      }
+    });
+
+    // ===== QUÊN MẬT KHẨU =====
+    document.getElementById('forgotPassword').addEventListener('click', async () => {
+      clearMessage();
+      showMessage('Tính năng quên mật khẩu cần email. Hiện tại đang dùng tên đăng nhập nên không hỗ trợ.');
+    });
+
+    // ===== GOOGLE =====
+    document.getElementById('btnGoogle').addEventListener('click', async () => {
+      clearMessage();
+      const provider = new GoogleAuthProvider();
+      try {
+        const result = await signInWithPopup(auth, provider);
+        showMessage(`Thành công! Xin chào ${result.user.displayName || result.user.email}`, 'success');
+      } catch (error) {
+        if (error.code !== 'auth/popup-closed-by-user') {
+          showMessage('Đăng nhập Google thất bại: ' + error.message);
+        }
+      }
+    });
+
+    // ===== FACEBOOK =====
+    document.getElementById('btnFacebook').addEventListener('click', async () => {
+      clearMessage();
+      const provider = new FacebookAuthProvider();
+      try {
+        const result = await signInWithPopup(auth, provider);
+        showMessage(`Thành công! Xin chào ${result.user.displayName || result.user.email}`, 'success');
+      } catch (error) {
+        if (error.code === 'auth/operation-not-allowed') {
+          showMessage('Facebook Login chưa được bật trong Firebase Console.');
+        } else if (error.code !== 'auth/popup-closed-by-user') {
+          showMessage('Đăng nhập Facebook thất bại: ' + error.message);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
