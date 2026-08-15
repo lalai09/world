@@ -788,7 +788,7 @@
     keys[e.key.toLowerCase()] = true;
     // e.repeat = true khi trình duyệt tự lặp lại phím do GIỮ phím (không phải bấm mới)
     // -> bỏ qua để giữ phím "e" không đập/đào liên tục không dừng
-    if (e.key.toLowerCase() === 'e' && !e.repeat) tryInteract();
+    if (e.key.toLowerCase() === 'l' && !e.repeat) tryInteract();
   });
   window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
@@ -1353,7 +1353,7 @@
 
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 11px Arial';
-        ctx.fillText('Nhấn E / Dùng', sx, sy + obj.r + 46);
+        ctx.fillText('Nhấn L / Dùng', sx, sy + obj.r + 46);
       }
     }
   }
