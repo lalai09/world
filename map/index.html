@@ -1,0 +1,1879 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body {
+    width:100%; height:100%; overflow:hidden;
+    background:#111; font-family: 'Segoe UI', Arial, sans-serif;
+  }
+  #gameContainer {
+    position:relative; width:100%; height:100%;
+    background:#000; overflow:hidden;
+  }
+  /* #gameFrame có đúng tỉ lệ 960:540 và luôn canh giữa,
+     mọi HUD/nút bên trong sẽ bám sát 4 cạnh của khung này
+     (không phải cạnh màn hình) nên luôn khớp với canvas */
+  #gameFrame {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+  }
+  canvas#game {
+    background:#87CEEB;
+    display:block;
+    image-rendering: pixelated;
+    touch-action:none;
+  }
+  #minimapWrap {
+    position:absolute; top:8px; right:8px; z-index:5;
+    display:flex; flex-direction:column; align-items:center;
+  }
+  #minimap {
+    width:90px; height:90px;
+    border:2px solid rgba(255,255,255,.6); border-radius:6px;
+    background:rgba(0,0,0,.4); display:block;
+  }
+  #minimapLabel {
+    margin-top:3px; color:#fff; font-size:9px; font-weight:bold;
+    text-shadow:0 1px 3px rgba(0,0,0,.8); background:rgba(0,0,0,.35);
+    padding:1px 7px; border-radius:4px; letter-spacing:.5px;
+  }
+  /* Joystick ảo cho mobile - bám cố định góc dưới trái CỦA KHUNG GAME */
+  #joyZone {
+    position:absolute; left:0; bottom:0; width:45%; height:45%;
+    z-index:10; touch-action:none;
+  }
+  #joyBase {
+    position:absolute; left:80px; bottom:80px;
+    width:100px; height:100px; border-radius:50%;
+    background:rgba(255,255,255,.18); border:2px solid rgba(255,255,255,.45);
+    transform:translate(-50%,50%);
+  }
+  #joyStick {
+    position:absolute; left:50%; top:50%; width:44px; height:44px; border-radius:50%;
+    background:rgba(255,255,255,.6); border:2px solid rgba(255,255,255,.85);
+    transform:translate(-50%,-50%);
+  }
+  /* Nút "Trở về" - quay lại trang chat, góc trên trái */
+  #backBtn {
+    position:absolute; top:8px; left:8px; z-index:15;
+    display:flex; align-items:center; gap:5px;
+    background:rgba(0,0,0,.45); border:2px solid rgba(255,255,255,.5);
+    color:#fff; font-size:12px; font-weight:bold;
+    padding:6px 12px; border-radius:20px; user-select:none;
+  }
+  #playerTag {
+    position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:5;
+    background:rgba(0,0,0,.35); color:#fff; font-size:11px;
+    padding:4px 10px; border-radius:12px; text-shadow:0 1px 2px rgba(0,0,0,.8);
+  }
+  #interactBtn {
+    position:absolute; right:20px; bottom:20px; z-index:10;
+    width:68px; height:68px; border-radius:50%;
+    background:rgba(255,180,50,.8); border:3px solid rgba(255,255,255,.85);
+    box-shadow:0 2px 10px rgba(0,0,0,.4);
+    color:#fff; font-weight:bold; font-size:14px;
+    display:flex; align-items:center; justify-content:center;
+    user-select:none;
+  }
+
+  /* ---------- HOTBAR (thanh ô đồ dưới màn hình) ---------- */
+  #hotbar {
+    position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
+    display:flex; gap:6px; z-index:10;
+  }
+  .hotSlot {
+    width:44px; height:44px; border-radius:9px;
+    background:rgba(20,20,20,.55); border:2px solid rgba(255,255,255,.35);
+    display:flex; align-items:center; justify-content:center;
+    position:relative; font-size:19px; user-select:none;
+  }
+  .hotSlot.active {
+    border-color:#ffd24d; box-shadow:0 0 0 2px rgba(255,210,77,.6);
+    background:rgba(80,60,10,.6);
+  }
+  .hotSlot.empty { opacity:.35; }
+  .hotSlot .cnt {
+    position:absolute; right:2px; bottom:1px; font-size:9px; color:#fff;
+    text-shadow:0 1px 2px rgba(0,0,0,.9); font-weight:bold;
+  }
+  .hotSlot .key {
+    position:absolute; left:2px; top:1px; font-size:8px; color:#fff;
+    opacity:.7;
+  }
+  #msgBox {
+    position:absolute; left:50%; bottom:14%; transform:translateX(-50%);
+    background:rgba(0,0,0,.75); color:#fff; padding:10px 18px;
+    border-radius:8px; font-size:15px; display:none; z-index:8;
+    max-width:80%; text-align:center; pointer-events:none;
+  }
+  #fishGame {
+    position:absolute; z-index:25; display:none; flex-direction:column; align-items:center;
+    width:118px; pointer-events:none;
+  }
+  #fishBarWrap {
+    position:relative; width:100%; height:14px;
+    background:rgba(5,15,25,.9); border-radius:8px;
+    border:2px solid rgba(255,255,255,.3); overflow:hidden;
+  }
+  #fishZone {
+    position:absolute; top:1px; bottom:1px;
+    background:#3ddc84; border-left:1px solid #9dffc8; border-right:1px solid #9dffc8;
+    border-radius:3px;
+  }
+  #fishCursor {
+    position:absolute; top:0; bottom:0; width:3px;
+    background:#111; border-radius:2px;
+  }
+  #fishHint {
+    margin-top:4px; color:#dfe9f5; font-size:10px; text-align:center;
+    text-shadow:0 1px 4px rgba(0,0,0,.8); font-weight:bold;
+    line-height:1.25;
+  }
+  #fishProgWrap {
+    margin-top:5px; width:100%; height:6px;
+    background:rgba(5,15,25,.9); border-radius:4px;
+    border:2px solid rgba(255,255,255,.25); overflow:hidden;
+  }
+  #fishProg { height:100%; width:0%; background:#4caf50; transition:width .08s linear; }
+
+  #helpHint {
+    position:absolute; bottom:8px; left:10px; color:#fff;
+    font-size:12px; opacity:.7; z-index:5;
+  }
+
+  /* ---------- TÚI ĐỒ & CHẾ TẠO ---------- */
+  #invBar {
+    position:absolute; top:44px; left:8px; z-index:12;
+    display:flex; gap:6px; flex-wrap:wrap; max-width:55%;
+    background:rgba(0,0,0,.35); padding:6px 8px; border-radius:8px;
+  }
+  .invItem {
+    display:flex; align-items:center; gap:3px; color:#fff;
+    font-size:12px; text-shadow:0 1px 2px rgba(0,0,0,.8); white-space:nowrap;
+  }
+  .invItem .ic { font-size:14px; }
+
+  #shopOverlay {
+    position:absolute; inset:0; background:rgba(0,0,0,.55);
+    display:none; align-items:center; justify-content:center; z-index:20;
+  }
+  #shopPanel {
+    background:#2b2f3a; border-radius:12px; padding:14px 16px;
+    width:88%; max-width:420px; max-height:82%; overflow-y:auto;
+    color:#fff; box-shadow:0 8px 30px rgba(0,0,0,.5);
+  }
+  #shopPanel h3 {
+    margin:0 0 10px; font-size:16px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  #shopPanel h4 {
+    margin:12px 0 8px; font-size:13px; opacity:.8; border-top:1px solid rgba(255,255,255,.15); padding-top:10px;
+  }
+  #shopPanel h4:first-of-type { border-top:none; padding-top:0; }
+  #shopClose {
+    cursor:pointer; background:rgba(255,255,255,.15); border:none;
+    color:#fff; width:26px; height:26px; border-radius:50%; font-size:13px;
+  }
+  .recipeCard {
+    display:flex; align-items:center; justify-content:space-between;
+    gap:8px; background:rgba(255,255,255,.06); border-radius:8px;
+    padding:8px 10px; margin-bottom:8px;
+  }
+  .recipeInfo { font-size:12px; line-height:1.4; }
+  .recipeInfo b { font-size:13px; }
+  .recipeCost { opacity:.8; font-size:11px; margin-top:2px; }
+  .recipeBtn {
+    background:#4caf50; border:none; color:#fff; padding:7px 12px;
+    border-radius:6px; font-size:12px; cursor:pointer; white-space:nowrap;
+  }
+  .recipeBtn:disabled { background:#666; cursor:not-allowed; opacity:.6; }
+  .recipeBtn.sellBtn { background:#e08a2b; }
+  .recipeBtn.sellBtn:disabled { background:#666; }
+
+  /* ---------- BONG BÓNG CHAT CHUNG (GÓC MÀN HÌNH) ---------- */
+  #chatBubble {
+    position:absolute; right:20px; bottom:100px; z-index:10;
+    width:48px; height:48px; border-radius:50%;
+    background:rgba(60,180,140,.85); border:3px solid rgba(255,255,255,.85);
+    box-shadow:0 2px 10px rgba(0,0,0,.4);
+    color:#fff; font-size:20px;
+    display:flex; align-items:center; justify-content:center;
+    user-select:none;
+  }
+  #chatBubble .chatDot {
+    position:absolute; top:-2px; right:-2px; width:10px; height:10px;
+    border-radius:50%; background:#ff4d4d; border:2px solid #fff; display:none;
+  }
+  #chatPanel {
+    position:absolute; right:20px; bottom:156px; z-index:11;
+    width:200px; max-height:200px;
+    background:rgba(15,17,22,.85); border:2px solid rgba(255,255,255,.35);
+    border-radius:10px; display:none; flex-direction:column; overflow:hidden;
+  }
+  #chatMessages {
+    flex:1; overflow-y:auto; padding:6px 8px; display:flex; flex-direction:column; gap:3px;
+    max-height:140px;
+  }
+  .chatMsg { font-size:11px; color:#fff; line-height:1.3; word-break:break-word; }
+  .chatMsg b { color:#7fd6ff; }
+  #chatInputRow { display:flex; border-top:1px solid rgba(255,255,255,.2); }
+  #chatInput {
+    flex:1; border:none; outline:none; background:rgba(255,255,255,.08);
+    color:#fff; font-size:11px; padding:6px 7px;
+  }
+  #chatInput::placeholder { color:rgba(255,255,255,.4); }
+  #chatSendBtn {
+    border:none; background:rgba(60,180,140,.85); color:#fff; font-size:11px;
+    padding:0 10px; cursor:pointer;
+  }
+
+  /* ---------- ÉP XOAY NGANG TRÊN ĐIỆN THOẠI ---------- */
+  /* Khi màn hình đang ở chế độ dọc trên thiết bị cảm ứng (điện thoại),
+     ta xoay #gameContainer 90 độ để game luôn hiển thị ngang.
+     Dùng JS set width/height bằng px thực tế (thay vì vw/vh) để
+     không bị lệch khi thanh địa chỉ Chrome mobile ẩn/hiện. */
+  html, body { width:100%; height:100%; }
+  #rotateRoot {
+    width:100%; height:100%; overflow:hidden;
+  }
+  #rotateRoot.forced-landscape {
+    transform: rotate(90deg);
+    transform-origin: top left;
+    position:fixed;
+    top:0; left:100%;
+  }
+</style>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+
+<div id="rotateRoot">
+<div id="gameContainer">
+  <div id="gameFrame">
+    <canvas id="game" width="960" height="540"></canvas>
+
+    <div id="backBtn">⬅ Trở về</div>
+    <div id="playerTag"></div>
+
+    <div id="minimapWrap">
+      <canvas id="minimap" width="150" height="150"></canvas>
+      <div id="minimapLabel">BẢN ĐỒ</div>
+    </div>
+
+    <div id="invBar"></div>
+
+    <div id="msgBox"></div>
+    <div id="helpHint">bản thử nghiệm thoii đừng choi</div>
+
+    <div id="fishGame">
+      <div id="fishBarWrap">
+        <div id="fishZone"></div>
+        <div id="fishCursor"></div>
+      </div>
+      <div id="fishHint">Nhấn đúng lúc con trỏ vào vùng xanh!</div>
+      <div id="fishProgWrap"><div id="fishProg"></div></div>
+    </div>
+
+    <!-- Điều khiển cảm ứng -->
+    <div id="joyZone">
+      <div id="joyBase"><div id="joyStick"></div></div>
+    </div>
+    <div id="hotbar"></div>
+    <div id="interactBtn">Dùng</div>
+
+    <div id="shopOverlay">
+      <div id="shopPanel">
+        <h3>🏪 Cửa hàng <button id="shopClose">✕</button></h3>
+        <div id="shopList"></div>
+      </div>
+    </div>
+
+    <div id="chatBubble">💬<span class="chatDot"></span></div>
+    <div id="chatPanel">
+      <div id="chatMessages"></div>
+      <div id="chatInputRow">
+        <input id="chatInput" type="text" placeholder="Chat chung..." maxlength="150">
+        <button id="chatSendBtn">Gửi</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ===========================================================
+     MODULE GAME 2D THẾ GIỚI MỞ
+     - Bản đồ tile lớn hơn màn hình, camera theo nhân vật
+     - Va chạm với chướng ngại vật (obstacles)
+     - Vùng bản đồ (zones) hiển thị theo vị trí
+     - NPC / điểm tương tác (interactables)
+     - Điều khiển: bàn phím (WASD/mũi tên) + joystick ảo cho mobile
+     - Minimap
+     Bạn có thể copy toàn bộ IIFE này vào project khác,
+     hoặc export các hàm/class cần thiết ra ngoài.
+  =========================================================== */
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const miniCanvas = document.getElementById('minimap');
+  const miniCtx = miniCanvas.getContext('2d');
+
+  // ---------- CẤU HÌNH THẾ GIỚI ----------
+  const TILE = 40;                 // kích thước 1 ô tile (px)
+  const WORLD_COLS = 60;           // số cột của thế giới
+  const WORLD_ROWS = 40;           // số hàng của thế giới
+  const WORLD_W = TILE * WORLD_COLS;
+  const WORLD_H = TILE * WORLD_ROWS;
+
+  // Loại tile: 0 = cỏ, 1 = nước, 2 = cát, 3 = rừng, 4 = đá, 5 = đất nông trại
+  const TILE_COLORS = {
+    0: '#5fb35f',
+    1: '#3a7bd5',
+    2: '#e0c58a',
+    3: '#2e7d32',
+    4: '#8a8a8a',
+    5: '#6b4a2b'
+  };
+  const TILE_SOLID = { 1:true, 4:true }; // tile không đi qua được (nước, đá)
+
+  // Sinh bản đồ ngẫu nhiên đơn giản dùng noise giả (value noise nhẹ)
+  function generateWorld() {
+    const map = [];
+    for (let y = 0; y < WORLD_ROWS; y++) {
+      const row = [];
+      for (let x = 0; x < WORLD_COLS; x++) {
+        row.push(0); // mặc định cỏ
+      }
+      map.push(row);
+    }
+
+    // Hồ nước ở giữa bản đồ
+    const lakeCx = 30, lakeCy = 20, lakeR = 6;
+    for (let y = 0; y < WORLD_ROWS; y++) {
+      for (let x = 0; x < WORLD_COLS; x++) {
+        const d = Math.hypot(x - lakeCx, y - lakeCy);
+        if (d < lakeR) map[y][x] = 1;
+        else if (d < lakeR + 1.5) map[y][x] = 2; // viền cát quanh hồ
+      }
+    }
+
+    // Rừng góc trên trái
+    for (let y = 2; y < 14; y++) {
+      for (let x = 2; x < 16; x++) {
+        if (Math.random() < 0.55) map[y][x] = 3;
+      }
+    }
+
+    // Vùng đá góc dưới phải
+    for (let y = 28; y < 38; y++) {
+      for (let x = 44; x < 58; x++) {
+        if (Math.random() < 0.4) map[y][x] = 4;
+      }
+    }
+
+    // Rải đá lẻ tẻ làm chướng ngại vật
+    for (let i = 0; i < 80; i++) {
+      const x = Math.floor(Math.random() * WORLD_COLS);
+      const y = Math.floor(Math.random() * WORLD_ROWS);
+      if (map[y][x] === 0 && Math.random() < 0.5) map[y][x] = 4;
+    }
+
+    return map;
+  }
+
+  const worldMap = generateWorld();
+
+  function isSolidAtWorld(px, py) {
+    const tx = Math.floor(px / TILE);
+    const ty = Math.floor(py / TILE);
+    if (tx < 0 || ty < 0 || tx >= WORLD_COLS || ty >= WORLD_ROWS) return true;
+    return !!TILE_SOLID[worldMap[ty][tx]];
+  }
+
+  function zoneNameAt(px, py) {
+    const tx = Math.floor(px / TILE);
+    const ty = Math.floor(py / TILE);
+    if (tx < 0 || ty < 0 || tx >= WORLD_COLS || ty >= WORLD_ROWS) return 'Vùng chưa khám phá';
+    const t = worldMap[ty][tx];
+    return { 0:'Đồng cỏ', 1:'Hồ nước', 2:'Bãi cát', 3:'Rừng cây', 4:'Vùng đá', 5:'Nông trại' }[t];
+  }
+
+  // ---------- TÀI NGUYÊN THU THẬP ĐƯỢC (CÂY, ĐÁ) ----------
+  // type: 'wood' (chặt cây) | 'stone' (đào đá)
+  // hp: số lần đánh cần để phá; respawn: giây hồi sinh sau khi phá xong
+  const resourceNodes = [];
+  function spawnResourceNodes() {
+    // Cây rải quanh vùng rừng (loại tile 3) + rải thêm lẻ tẻ
+    for (let ty = 0; ty < WORLD_ROWS; ty++) {
+      for (let tx = 0; tx < WORLD_COLS; tx++) {
+        if (worldMap[ty][tx] === 3 && Math.random() < 0.5) {
+          resourceNodes.push({
+            type:'wood', tx, ty,
+            x: tx*TILE + TILE/2, y: ty*TILE + TILE/2,
+            hp:15, maxHp:15, alive:true, respawnAt:0
+          });
+        }
+      }
+    }
+    // Đá rải quanh vùng đá (loại tile 4)
+    for (let ty = 0; ty < WORLD_ROWS; ty++) {
+      for (let tx = 0; tx < WORLD_COLS; tx++) {
+        if (worldMap[ty][tx] === 4 && Math.random() < 0.6) {
+          resourceNodes.push({
+            type:'stone', tx, ty,
+            x: tx*TILE + TILE/2, y: ty*TILE + TILE/2,
+            hp:12, maxHp:12, alive:true, respawnAt:0
+          });
+        }
+      }
+    }
+  }
+  spawnResourceNodes();
+
+  const RESOURCE_STYLE = {
+    wood:  { icon:'🌳', deadIcon:'🪵', give:'wood',  giveName:'Gỗ',  giveIcon:'🪵', amount:[1,1], respawn: 60 },
+    stone: { icon:'🪨', deadIcon:'⛏️', give:'stone', giveName:'Đá',  giveIcon:'🪨', amount:[1,1], respawn: 60 }
+  };
+
+  // ---------- TÚI ĐỒ (INVENTORY) ----------
+  const inventory = { wood:0, stone:0, coin:20 };
+  const ITEM_META = {
+    wood:  { icon:'🪵', name:'Gỗ' },
+    stone: { icon:'🪨', name:'Đá' },
+    fish:  { icon:'🐟', name:'Cá' },
+    coin:  { icon:'💰', name:'Xu' },
+    axe:   { icon:'🪓', name:'Rìu' },
+    pickaxe:{icon:'⛏️', name:'Cuốc' },
+    rod:   { icon:'🎣', name:'Cần câu' },
+    seed_rice: { icon:'🌱', name:'Hạt giống lúa' },
+    rice:      { icon:'🌾', name:'Lúa' }
+  };
+  function addItem(id, n) {
+    inventory[id] = (inventory[id]||0) + n;
+    renderInventory();
+    if (typeof renderHotbar === 'function') renderHotbar();
+    if (typeof scheduleSave === 'function') scheduleSave();
+  }
+  function hasItems(cost) {
+    return Object.entries(cost).every(([k,v]) => (inventory[k]||0) >= v);
+  }
+  function payItems(cost) {
+    Object.entries(cost).forEach(([k,v]) => { inventory[k] -= v; });
+    renderInventory();
+    if (typeof scheduleSave === 'function') scheduleSave();
+  }
+  function renderInventory() {
+    const bar = document.getElementById('invBar');
+    const entries = Object.entries(inventory).filter(([k,v]) => v > 0);
+    if (entries.length === 0) {
+      bar.innerHTML = '<div class="invItem" style="opacity:.6">Túi đồ trống</div>';
+      return;
+    }
+    bar.innerHTML = entries.map(([k,v]) =>
+      `<div class="invItem"><span class="ic">${(ITEM_META[k]||{}).icon||'❔'}</span>${v}</div>`
+    ).join('');
+  }
+  renderInventory();
+
+  // ---------- CỬA HÀNG: BÁN TÀI NGUYÊN & MUA ĐỒ ----------
+  // Bán gỗ/đá lấy xu, rồi dùng xu mua công cụ & công trình
+  const sellOffers = [
+    { id:'sell_wood', from:'wood', name:'Bán Gỗ', icon:'🪵', price:1 },
+    { id:'sell_stone', from:'stone', name:'Bán Đá', icon:'🪨', price:1 },
+    { id:'sell_fish', from:'fish', name:'Bán Cá', icon:'🐟', price:2 },
+    { id:'sell_rice', from:'rice', name:'Bán Lúa', icon:'🌾', price:5 },
+  ];
+  const recipes = [
+    { id:'axe', name:'Rìu gỗ', icon:'🪓', desc:'Chặt cây nhanh & mạnh hơn (độ bền 40)',
+      cost:{coin:20}, durability:40, onCraft:()=>{ playerTools.axe = 40; renderHotbar(); if (typeof scheduleSave === 'function') scheduleSave(); } },
+    { id:'pickaxe', name:'Cuốc gỗ', icon:'⛏️', desc:'Đào đá nhanh & mạnh hơn (độ bền 40)',
+      cost:{coin:20}, durability:40, onCraft:()=>{ playerTools.pickaxe = 40; renderHotbar(); if (typeof scheduleSave === 'function') scheduleSave(); } },
+    { id:'rod', name:'Cần câu', icon:'🎣', desc:'Đứng cạnh nước để câu cá (độ bền 40)',
+      cost:{coin:25}, durability:40, onCraft:()=>{ playerTools.rod = 40; renderHotbar(); if (typeof scheduleSave === 'function') scheduleSave(); } },
+  ];
+  const playerTools = { axe:0, pickaxe:0, rod:0 }; // 0 = chưa có / đã hỏng; số còn lại = độ bền dùng được
+
+  // Hạt giống: vật phẩm tiêu hao, mua bao nhiêu lần cũng được, cộng dồn vào túi đồ
+  const seedOffers = [
+    { id:'seed_rice', name:'Hạt giống lúa', icon:'🌱', price:3 },
+  ];
+
+  // ---------- DỮ LIỆU CÂY TRỒNG (thời gian lớn tính bằng giây, sản lượng thu hoạch) ----------
+  const CROP_META = {
+    seed_rice: { growTime:45, yieldMin:2, yieldMax:4, harvestId:'rice' },
+  };
+  const SEED_PRIORITY = ['seed_rice']; // thứ tự ưu tiên tự trồng
+
+  // Trạng thái các ô đất CỦA RIÊNG tài khoản này: { [plotIdx]: {seed, plantedAt} }
+  // -> lưu/đọc qua saveRef (game_open_world/{myKey}) giống inventory, nên mỗi
+  //    tài khoản đăng nhập khác nhau sẽ có chỗ trồng hoàn toàn độc lập.
+  const farmPlots = {};
+
+  function farmPlotStatus(idx) {
+    const st = farmPlots[idx];
+    if (!st || !CROP_META[st.seed]) return { state:'empty' };
+    const meta = CROP_META[st.seed];
+    const elapsed = (Date.now() - st.plantedAt) / 1000;
+    if (elapsed >= meta.growTime) return { state:'ready', seed: st.seed };
+    return { state:'growing', seed: st.seed, progress: Math.min(1, elapsed / meta.growTime) };
+  }
+  function plantAt(plotIdx) {
+    const seedId = SEED_PRIORITY.find(id => (inventory[id]||0) > 0);
+    if (!seedId) { showMessage('🌱 Bạn hết hạt giống rồi! Ghé Cửa hàng mua thêm.', 1800); return; }
+    inventory[seedId] -= 1;
+    farmPlots[plotIdx] = { seed: seedId, plantedAt: Date.now() };
+    renderInventory();
+    showMessage(`Đã trồng ${ITEM_META[seedId].icon} ${ITEM_META[seedId].name}!`, 1400);
+    if (typeof scheduleSave === 'function') scheduleSave();
+  }
+  function harvestAt(plotIdx) {
+    const st = farmPlots[plotIdx];
+    if (!st || !CROP_META[st.seed]) return;
+    const meta = CROP_META[st.seed];
+    const amount = meta.yieldMin + Math.floor(Math.random() * (meta.yieldMax - meta.yieldMin + 1));
+    delete farmPlots[plotIdx];
+    addItem(meta.harvestId, amount);
+    showMessage(`🌾 Thu hoạch được ${amount} ${ITEM_META[meta.harvestId].icon} ${ITEM_META[meta.harvestId].name}!`, 1800);
+  }
+
+  // ---------- HOTBAR (thanh ô đồ trang bị) ----------
+  // Chỉ những công cụ cầm-tay mới vào hotbar; "equipped" là công cụ đang cầm
+  const HOTBAR_IDS = ['axe', 'pickaxe', 'rod'];
+  let equipped = null; // 'axe' | 'pickaxe' | 'rod' | null
+
+  function renderHotbar() {
+    const bar = document.getElementById('hotbar');
+    bar.innerHTML = HOTBAR_IDS.map((id, i) => {
+      const owned = (playerTools[id]||0) > 0;
+      const active = equipped === id ? 'active' : '';
+      const empty = owned ? '' : 'empty';
+      return `<div class="hotSlot ${active} ${empty}" data-id="${id}">
+        <span class="key">${i+1}</span>${ITEM_META[id].icon}
+        ${owned ? `<span class="cnt">${playerTools[id]}</span>` : ''}
+      </div>`;
+    }).join('');
+    bar.querySelectorAll('.hotSlot').forEach(slot => {
+      slot.addEventListener('click', () => equipItem(slot.dataset.id));
+      slot.addEventListener('touchstart', e => { e.preventDefault(); equipItem(slot.dataset.id); });
+    });
+  }
+  function equipItem(id) {
+    if ((playerTools[id]||0) <= 0) { showMessage('Bạn chưa có ' + ITEM_META[id].name + ' còn dùng được! Ghé Cửa hàng để mua.', 1600); return; }
+    equipped = (equipped === id) ? null : id;
+    showMessage(equipped ? `Đang cầm ${ITEM_META[id].icon} ${ITEM_META[id].name}` : 'Đã cất công cụ', 1100);
+    renderHotbar();
+  }
+  function breakEquippedTool() {
+    const id = equipped;
+    if (!id) return;
+    equipped = null;
+    showMessage(`💥 ${ITEM_META[id].icon} ${ITEM_META[id].name} đã hỏng!`, 1600);
+    renderHotbar();
+  }
+  window.addEventListener('keydown', e => {
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= HOTBAR_IDS.length) equipItem(HOTBAR_IDS[n-1]);
+  });
+  renderHotbar();
+
+
+  function renderShop() {
+    const list = document.getElementById('shopList');
+
+    const sellHtml = sellOffers.map(s => {
+      const owned = inventory[s.from] || 0;
+      const total = owned * s.price;
+      const can = owned > 0;
+      return `
+        <div class="recipeCard">
+          <div class="recipeInfo">
+            <b>${s.icon} ${s.name}</b><br>
+            Bạn có: ${owned} ${s.icon}
+            <div class="recipeCost">${s.price} 💰 / cái &nbsp;→&nbsp; nhận ${total} 💰</div>
+          </div>
+          <button class="recipeBtn sellBtn" data-sell="${s.id}" ${can ? '' : 'disabled'}>Bán hết</button>
+        </div>`;
+    }).join('');
+
+    const buyHtml = recipes.map(r => {
+      const costTxt = Object.entries(r.cost).map(([k,v]) => `${v} ${ITEM_META[k].icon}`).join('  ');
+      const durLeft = playerTools[r.id] || 0;
+      const owned = durLeft > 0;
+      const can = hasItems(r.cost) && !owned;
+      return `
+        <div class="recipeCard">
+          <div class="recipeInfo">
+            <b>${r.icon} ${r.name}</b>${owned ? ` <span style="opacity:.7">(còn bền: ${durLeft})</span>` : ''}<br>
+            ${r.desc}
+            <div class="recipeCost">Giá: ${costTxt}</div>
+          </div>
+          <button class="recipeBtn" data-buy="${r.id}" ${can ? '' : 'disabled'}>${owned ? 'OK' : 'Mua'}</button>
+        </div>`;
+    }).join('');
+
+    const seedHtml = seedOffers.map(sd => {
+      const owned = inventory[sd.id] || 0;
+      const can = (inventory.coin||0) >= sd.price;
+      return `
+        <div class="recipeCard">
+          <div class="recipeInfo">
+            <b>${sd.icon} ${sd.name}</b>${owned ? ` <span style="opacity:.7">(đang có: ${owned})</span>` : ''}
+            <div class="recipeCost">Giá: ${sd.price} 💰 / hạt</div>
+          </div>
+          <button class="recipeBtn" data-buyseed="${sd.id}" ${can ? '' : 'disabled'}>Mua</button>
+        </div>`;
+    }).join('');
+
+    list.innerHTML = `<h4>💰 Bạn có: ${inventory.coin||0} Xu</h4>
+      <h4>📦 Bán tài nguyên</h4>${sellHtml}
+      <h4>🌱 Mua hạt giống</h4>${seedHtml}
+      <h4>🛒 Mua đồ</h4>${buyHtml}`;
+
+    list.querySelectorAll('[data-sell]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const s = sellOffers.find(so => so.id === btn.dataset.sell);
+        const owned = inventory[s.from] || 0;
+        if (!s || owned <= 0) return;
+        const total = owned * s.price;
+        payItems({ [s.from]: owned });
+        addItem('coin', total);
+        showMessage(`Đã bán ${owned} ${s.icon} nhận ${total} 💰!`);
+        renderShop();
+      });
+    });
+    list.querySelectorAll('[data-buy]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const r = recipes.find(rc => rc.id === btn.dataset.buy);
+        if (!r || !hasItems(r.cost)) return;
+        payItems(r.cost);
+        r.onCraft();
+        showMessage(`Đã mua ${r.icon} ${r.name}!`);
+        renderShop();
+      });
+    });
+    list.querySelectorAll('[data-buyseed]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sd = seedOffers.find(so => so.id === btn.dataset.buyseed);
+        if (!sd || (inventory.coin||0) < sd.price) return;
+        payItems({ coin: sd.price });
+        addItem(sd.id, 1);
+        showMessage(`Đã mua ${sd.icon} ${sd.name}!`, 1200);
+        renderShop();
+      });
+    });
+  }
+
+  const shopOverlay = document.getElementById('shopOverlay');
+  function openShop() { renderShop(); shopOverlay.style.display = 'flex'; showMessage('🏪 Chào mừng đến cửa hàng!', 1200); }
+  function closeShop() { shopOverlay.style.display = 'none'; }
+  document.getElementById('shopClose').addEventListener('click', closeShop);
+  shopOverlay.addEventListener('click', e => { if (e.target === shopOverlay) closeShop(); });
+
+
+  // ---------- CỬA HÀNG (vị trí cố định ở phía nam bản đồ) ----------
+  const SHOP_TX = 28, SHOP_TY = 37; // gần cạnh dưới (nam) của bản đồ
+  const SHOP_X = SHOP_TX*TILE + TILE/2, SHOP_Y = SHOP_TY*TILE + TILE/2;
+  // dọn quang khu đất quanh cửa hàng thành cỏ để chắc chắn có thể đi tới
+  for (let ty = SHOP_TY-2; ty <= SHOP_TY+2; ty++) {
+    for (let tx = SHOP_TX-2; tx <= SHOP_TX+2; tx++) {
+      if (tx>=0 && ty>=0 && tx<WORLD_COLS && ty<WORLD_ROWS) worldMap[ty][tx] = 0;
+    }
+  }
+
+  const interactables = [
+    { x: SHOP_X, y: SHOP_Y, r: 18, type:'shop', icon:'🏪', name:'Cửa hàng', color:'#d4a017' }
+  ];
+
+  // ---------- NÔNG TRẠI (khu đất trồng, phía TÂY/TRÁI bản đồ) ----------
+  // Mỗi tài khoản có trạng thái cây trồng RIÊNG (farmPlots lưu theo saveRef
+  // của từng người, không chia sẻ với người chơi khác) — vị trí vật lý các ô
+  // đất là chung, nhưng chỉ chủ tài khoản mới thấy/thu hoạch cây của mình.
+  const FARM_TX0 = 2, FARM_TY0 = 20, FARM_COLS = 6, FARM_ROWS = 6;
+  for (let ty = FARM_TY0-1; ty <= FARM_TY0+FARM_ROWS; ty++) {
+    for (let tx = FARM_TX0-1; tx <= FARM_TX0+FARM_COLS; tx++) {
+      if (tx>=0 && ty>=0 && tx<WORLD_COLS && ty<WORLD_ROWS) {
+        const inPlot = tx>=FARM_TX0 && tx<FARM_TX0+FARM_COLS && ty>=FARM_TY0 && ty<FARM_TY0+FARM_ROWS;
+        worldMap[ty][tx] = inPlot ? 5 : 0; // 5 = đất canh tác, viền quanh dọn thành cỏ
+      }
+    }
+  }
+  const FARM_PLOTS = [];
+  (function setupFarmPlots(){
+    let idx = 0;
+    for (let ty = FARM_TY0; ty < FARM_TY0+FARM_ROWS; ty++) {
+      for (let tx = FARM_TX0; tx < FARM_TX0+FARM_COLS; tx++) {
+        FARM_PLOTS.push({ idx: idx++, tx, ty, x: tx*TILE+TILE/2, y: ty*TILE+TILE/2 });
+      }
+    }
+  })();
+  // Xoá mọi tài nguyên (cây/đá) lỡ rơi trúng khu nông trại + vùng đệm quanh nó,
+  // vì spawnResourceNodes() đã chạy trước khi khu đất này được dọn.
+  for (let i = resourceNodes.length - 1; i >= 0; i--) {
+    const n = resourceNodes[i];
+    if (n.tx >= FARM_TX0-1 && n.tx < FARM_TX0+FARM_COLS+1 &&
+        n.ty >= FARM_TY0-1 && n.ty < FARM_TY0+FARM_ROWS+1) {
+      resourceNodes.splice(i, 1);
+    }
+  }
+
+
+  // ---------- NHÂN VẬT ----------
+  const player = {
+    x: WORLD_W/2, y: WORLD_H/2, // vị trí giữa bản đồ
+    w: 28, h: 28,
+    speed: 220,        // px/giây
+    hp: 100, maxHp: 100,
+    dir: 'down',
+    frame: 0, frameTimer: 0
+  };
+
+  // đưa player ra khỏi tile solid nếu spawn trúng chướng ngại
+  (function ensureSafeSpawn(){
+    let tries = 0;
+    while (isSolidAtWorld(player.x, player.y) && tries < 500) {
+      player.x = Math.random() * WORLD_W;
+      player.y = Math.random() * WORLD_H;
+      tries++;
+    }
+  })();
+
+  // ---------- INPUT: BÀN PHÍM ----------
+  const keys = {};
+  window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+    if (e.key.toLowerCase() === 'e') tryInteract();
+  });
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+  function keyboardVector() {
+    let dx = 0, dy = 0;
+    if (keys['w'] || keys['arrowup']) dy -= 1;
+    if (keys['s'] || keys['arrowdown']) dy += 1;
+    if (keys['a'] || keys['arrowleft']) dx -= 1;
+    if (keys['d'] || keys['arrowright']) dx += 1;
+    return { dx, dy };
+  }
+
+  // ---------- INPUT: JOYSTICK ẢO (MOBILE) ----------
+  const joyZone = document.getElementById('joyZone');
+  const joyBase = document.getElementById('joyBase');
+  const joyStick = document.getElementById('joyStick');
+  let joyActive = false, joyVec = {dx:0,dy:0};
+  const JOY_RADIUS = 50;
+
+  function joyCenter() {
+    const r = joyBase.getBoundingClientRect();
+    return { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+
+  function joyStart(clientX, clientY) {
+    joyActive = true;
+    joyMove(clientX, clientY);
+  }
+  function joyMove(clientX, clientY) {
+    if (!joyActive) return;
+    const c = joyCenter();
+    let dx = clientX - c.x;
+    let dy = clientY - c.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > JOY_RADIUS) { dx = dx / dist * JOY_RADIUS; dy = dy / dist * JOY_RADIUS; }
+
+    // Khi #rotateRoot đang bị xoay 90° (chế độ ép ngang trên điện thoại),
+    // clientX/clientY vẫn là toạ độ THẬT (chưa xoay) của ngón tay, nên phải
+    // xoay ngược lại cho khớp hướng hiển thị trên màn hình đã xoay —
+    // áp dụng cho CẢ vị trí hiển thị của núm joystick lẫn vector di chuyển.
+    let vx = dx / JOY_RADIUS, vy = dy / JOY_RADIUS;
+    let displayDx = dx, displayDy = dy;
+    if (rotateRoot.classList.contains('forced-landscape')) {
+      const rvx = vy;
+      const rvy = -vx;
+      vx = rvx; vy = rvy;
+      displayDx = vx * JOY_RADIUS;
+      displayDy = vy * JOY_RADIUS;
+    }
+
+    joyStick.style.transform = `translate(calc(-50% + ${displayDx}px), calc(-50% + ${displayDy}px))`;
+    joyVec = { dx: vx, dy: vy };
+  }
+  function joyEnd() {
+    joyActive = false;
+    joyStick.style.transform = 'translate(-50%,-50%)';
+    joyVec = { dx:0, dy:0 };
+  }
+
+  joyZone.addEventListener('touchstart', e => {
+    const t = e.changedTouches[0];
+    joyStart(t.clientX, t.clientY);
+  }, {passive:true});
+  joyZone.addEventListener('touchmove', e => {
+    const t = e.changedTouches[0];
+    joyMove(t.clientX, t.clientY);
+  }, {passive:true});
+  joyZone.addEventListener('touchend', joyEnd);
+  joyZone.addEventListener('touchcancel', joyEnd);
+
+  // hỗ trợ chuột kéo cho test trên desktop
+  joyZone.addEventListener('mousedown', e => joyStart(e.clientX, e.clientY));
+  window.addEventListener('mousemove', e => { if (joyActive) joyMove(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', joyEnd);
+
+  document.getElementById('interactBtn').addEventListener('touchstart', e => {
+    e.preventDefault(); tryInteract();
+  });
+  document.getElementById('interactBtn').addEventListener('click', tryInteract);
+
+  // ---------- TƯƠNG TÁC ----------
+  const msgBox = document.getElementById('msgBox');
+  let msgTimer = null;
+
+  function showMessage(text, duration=2500) {
+    msgBox.textContent = text;
+    msgBox.style.display = 'block';
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { msgBox.style.display = 'none'; }, duration);
+  }
+
+  function tryInteract() {
+    // Ưu tiên -1: nếu đang trong minigame câu cá, nút "Dùng" dùng để bắt nhịp
+    if (fishTapHandler) { fishTapHandler(); return; }
+
+    // Ưu tiên 0: câu cá nếu đang cầm cần câu và đứng gần mặt nước
+    if (equipped === 'rod' && isNearWater(player.x, player.y)) { doFishing(); return; }
+
+    // Ưu tiên 0.5: ô đất nông trại gần nhất (trồng / thu hoạch)
+    let nearestPlot = null, nearestPlotD = 999999;
+    for (const p of FARM_PLOTS) {
+      const d = Math.hypot(player.x - p.x, player.y - p.y);
+      if (d < 34 && d < nearestPlotD) { nearestPlotD = d; nearestPlot = p; }
+    }
+    if (nearestPlot) {
+      const status = farmPlotStatus(nearestPlot.idx);
+      if (status.state === 'empty') { plantAt(nearestPlot.idx); }
+      else if (status.state === 'ready') { harvestAt(nearestPlot.idx); }
+      else {
+        const meta = CROP_META[status.seed];
+        const left = Math.max(0, Math.ceil(meta.growTime * (1 - status.progress)));
+        showMessage(`${ITEM_META[status.seed].icon} Đang lớn... còn ~${left}s`, 1300);
+      }
+      return;
+    }
+
+    // Ưu tiên 1: tài nguyên (cây/đá) gần nhất trong tầm tay
+    let nearestNode = null, nearestD = 999999;
+    for (const node of resourceNodes) {
+      if (!node.alive) continue;
+      const d = Math.hypot(player.x - node.x, player.y - node.y);
+      if (d < 46 && d < nearestD) { nearestD = d; nearestNode = node; }
+    }
+    if (nearestNode) { gatherNode(nearestNode); return; }
+
+    // Ưu tiên 2: cửa hàng / NPC / cổng
+    for (const obj of interactables) {
+      const d = Math.hypot(player.x - obj.x, player.y - obj.y);
+      if (d < obj.r + 34) {
+        if (obj.type === 'shop') { openShop(); return; }
+        showMessage(obj.msg);
+        return;
+      }
+    }
+
+    if (equipped === 'rod') showMessage('🎣 Cần đứng gần mặt nước để câu cá!', 1400);
+  }
+
+  // ---------- CÂU CÁ ----------
+  function isNearWater(px, py) {
+    // kiểm tra 8 hướng quanh nhân vật (bán kính ~1.3 tile) xem có tile nước không
+    const R = TILE * 1.3;
+    for (let a = 0; a < 8; a++) {
+      const ang = a / 8 * Math.PI * 2;
+      const tx = Math.floor((px + Math.cos(ang)*R) / TILE);
+      const ty = Math.floor((py + Math.sin(ang)*R) / TILE);
+      if (tx>=0 && ty>=0 && tx<WORLD_COLS && ty<WORLD_ROWS && worldMap[ty][tx] === 1) return true;
+    }
+    return false;
+  }
+
+  let fishing = false;
+  const fishGameEl = document.getElementById('fishGame');
+  const fishBarWrapEl = document.getElementById('fishBarWrap');
+  const fishZoneEl = document.getElementById('fishZone');
+  const fishCursorEl = document.getElementById('fishCursor');
+  const fishHintEl = document.getElementById('fishHint');
+  const fishProgEl = document.getElementById('fishProg');
+  let fishAnim = null;
+  let fishTapHandler = null; // khi khác null: nút "Dùng" sẽ bắt nhịp câu cá thay vì tương tác thường
+
+  // Đặt thanh câu cá thu nhỏ ngay phía trên ô cần câu trong hotbar cho gọn.
+  // Lưu ý: #gameFrame có thể bị xoay 90° (chế độ ép ngang trên điện thoại),
+  // nên phải tính theo tọa độ offset cục bộ (offsetLeft/offsetTop) thay vì
+  // getBoundingClientRect (tọa độ màn hình sau khi xoay) để không bị lệch.
+  function offsetWithin(el, ancestor) {
+    let x = 0, y = 0, cur = el;
+    while (cur && cur !== ancestor) {
+      x += cur.offsetLeft;
+      y += cur.offsetTop;
+      cur = cur.offsetParent;
+    }
+    return { x, y };
+  }
+  function positionFishGameOverRodSlot() {
+    const hotbarEl = document.getElementById('hotbar');
+    const frame = document.getElementById('gameFrame');
+    if (!hotbarEl || !frame) return;
+    const off = offsetWithin(hotbarEl, frame);
+    const gameW = fishGameEl.offsetWidth || 118;
+    const gameH = fishGameEl.offsetHeight || 40;
+    let left = off.x + hotbarEl.offsetWidth / 2 - gameW / 2;
+    left = Math.max(4, Math.min(left, frame.clientWidth - gameW - 4));
+    let top = off.y - gameH - 8; // phía trên cả 3 ô công cụ
+    top = Math.max(4, top);
+    fishGameEl.style.left = left + 'px';
+    fishGameEl.style.bottom = '';
+    fishGameEl.style.top = top + 'px';
+  }
+
+  function doFishing() {
+    if (fishing) return;
+    fishing = true;
+    showMessage('🎣 Đang thả câu... chờ cá cắn câu!', 1600);
+    const waitTime = 1200 + Math.random()*2000;
+    setTimeout(() => {
+      if (!fishing) return; // người chơi đã bỏ đi / hủy
+      startFishMinigame();
+    }, waitTime);
+  }
+
+  function startFishMinigame() {
+    fishGameEl.style.display = 'flex';
+    positionFishGameOverRodSlot();
+    const barW = fishBarWrapEl.clientWidth;
+
+    let requiredHits = 3;   // số lần bấm trúng cần để câu được cá
+    let currentHits = 0;
+    let missCount = 0;
+    const maxMisses = 3;    // trượt quá số lần này thì cá sổng
+
+    let zoneStart = 0, zoneW = 0; // px
+    let pos = 0, dir = 1;
+    const speed = barW * (0.55 + Math.random() * 0.25); // px/giây, tỉ lệ theo chiều rộng thanh để tốc độ luôn vừa phải
+    let last = performance.now();
+    let escapeTimer = null;
+    let ended = false;
+
+    function randomizeZone() {
+      zoneW = barW * (0.18 + Math.random()*0.08); // vùng xanh ~18-26% chiều rộng
+      zoneStart = Math.random() * (barW - zoneW);
+      fishZoneEl.style.width = zoneW + 'px';
+      fishZoneEl.style.left = zoneStart + 'px';
+    }
+    randomizeZone();
+    fishCursorEl.style.left = '0px';
+    fishProgEl.style.width = '0%';
+    fishHintEl.textContent = `🎣 Bấm "Dùng" đúng lúc! (0/${requiredHits})`;
+
+    function updateProg() {
+      fishProgEl.style.width = Math.round((currentHits/requiredHits)*100) + '%';
+    }
+
+    function tapHandler(e) {
+      if (e) e.preventDefault();
+      if (ended) return;
+      const inZone = pos >= zoneStart && pos <= zoneStart + zoneW;
+      if (inZone) {
+        currentHits++;
+        updateProg();
+        if (currentHits >= requiredHits) { endFishMinigame(true); return; }
+        fishHintEl.textContent = `✅ Đúng nhịp! (${currentHits}/${requiredHits})`;
+        randomizeZone(); // đổi vị trí vùng xanh cho lượt kéo tiếp theo
+      } else {
+        currentHits = Math.max(0, currentHits - 1);
+        updateProg();
+        missCount++;
+        fishHintEl.textContent = `❌ Nhấn lệch nhịp! Cẩn thận, cá sắp sổng (${currentHits}/${requiredHits})`;
+        if (missCount >= maxMisses) { endFishMinigame(false); return; }
+      }
+    }
+    window.addEventListener('keydown', spaceHandler);
+    fishTapHandler = tapHandler; // nút "Dùng" sẽ gọi hàm này để bắt nhịp
+    function spaceHandler(e) {
+      if (e.code === 'Space' || e.key === 'Enter') tapHandler(e);
+    }
+
+    function frame(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      pos += dir * speed * dt;
+      if (pos < 0) { pos = 0; dir = 1; }
+      if (pos > barW) { pos = barW; dir = -1; }
+      fishCursorEl.style.left = pos + 'px';
+      fishAnim = requestAnimationFrame(frame);
+    }
+    fishAnim = requestAnimationFrame(frame);
+
+    // nếu câu quá lâu mà chưa đủ số lần trúng, cá tự sổng
+    escapeTimer = setTimeout(() => { endFishMinigame(false); }, 9000);
+
+    function endFishMinigame(win) {
+      if (ended) return;
+      ended = true;
+      cancelAnimationFrame(fishAnim);
+      clearTimeout(escapeTimer);
+      window.removeEventListener('keydown', spaceHandler);
+      fishTapHandler = null;
+      fishGameEl.style.display = 'none';
+      fishing = false;
+      wearTool('rod');
+      if (equipped !== 'rod') return; // cần câu vừa hỏng giữa chừng
+      if (win) {
+        const n = 1 + (Math.random() < 0.3 ? 1 : 0);
+        addItem('fish', n);
+        showMessage(`🐟 Câu được ${n} con Cá!`, 1600);
+      } else {
+        showMessage('💨 Cá đã sổng mất, thử lại nhé!', 1400);
+      }
+    }
+  }
+
+  // hao mòn độ bền công cụ đang cầm; công cụ hỏng khi độ bền về 0
+  function wearTool(id) {
+    if (equipped !== id || !(playerTools[id] > 0)) return;
+    playerTools[id] -= 1;
+    if (playerTools[id] <= 0) {
+      playerTools[id] = 0;
+      breakEquippedTool();
+    } else {
+      renderHotbar();
+    }
+    if (typeof scheduleSave === 'function') scheduleSave();
+  }
+
+  function gatherNode(node) {
+    const style = RESOURCE_STYLE[node.type];
+    const usingRightTool = (node.type === 'wood' && equipped === 'axe') || (node.type === 'stone' && equipped === 'pickaxe');
+    // Không dụng cụ: cây 5 lần (hp15/dmg3), đá 6 lần (hp12/dmg2)
+    // Có dụng cụ: cây 3 lần (dmg5), đá 4 lần (dmg3)
+    let dmg;
+    if (usingRightTool) {
+      dmg = node.type === 'wood' ? 5 : 3;
+    } else {
+      dmg = node.type === 'wood' ? 3 : 2;
+    }
+    node.hp -= dmg;
+    spawnChopFx(node.x, node.y);
+    if (usingRightTool) wearTool(node.type === 'wood' ? 'axe' : 'pickaxe');
+
+    if (node.hp <= 0) {
+      node.alive = false;
+      node.respawnAt = performance.now() + style.respawn * 1000;
+      const n = style.amount[0] + Math.floor(Math.random() * (style.amount[1]-style.amount[0]+1));
+      addItem(style.give, n);
+      showMessage(`${style.icon} Nhận ${n} ${style.giveIcon} ${style.giveName}!`, 1400);
+      // 25% cơ hội rớt thêm sợi cỏ khi chặt cây
+
+    } else {
+     
+    }
+  }
+
+  // hiệu ứng hạt vụn nhỏ khi chặt/đào
+  const chopFx = [];
+  function spawnChopFx(x, y) {
+    for (let i = 0; i < 6; i++) {
+      chopFx.push({
+        x, y,
+        vx: (Math.random()-0.5) * 120,
+        vy: -60 - Math.random()*60,
+        life: 0.5
+      });
+    }
+  }
+  function updateChopFx(dt) {
+    for (let i = chopFx.length-1; i >= 0; i--) {
+      const p = chopFx[i];
+      p.life -= dt;
+      if (p.life <= 0) { chopFx.splice(i,1); continue; }
+      p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 220*dt;
+    }
+  }
+  function drawChopFx() {
+    for (const p of chopFx) {
+      ctx.globalAlpha = Math.max(0, p.life/0.5);
+      ctx.fillStyle = '#c9a15a';
+      ctx.fillRect(p.x-camera.x-2, p.y-camera.y-2, 4, 4);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function updateResourceNodes() {
+    const now = performance.now();
+    for (const node of resourceNodes) {
+      if (!node.alive && now >= node.respawnAt) {
+        node.alive = true;
+        node.hp = node.maxHp;
+      }
+    }
+  }
+
+  function drawResourceNodes() {
+    for (const node of resourceNodes) {
+      const sx = node.x - camera.x, sy = node.y - camera.y;
+      if (sx < -40 || sy < -40 || sx > canvas.width+40 || sy > canvas.height+40) continue;
+      const style = RESOURCE_STYLE[node.type];
+
+      if (!node.alive) {
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.globalAlpha = 0.5;
+        ctx.fillText(style.deadIcon, sx, sy+8);
+        ctx.globalAlpha = 1;
+        continue;
+      }
+
+      ctx.font = node.type === 'wood' ? '30px Arial' : '24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(style.icon, sx, sy+10);
+
+      // thanh máu khi đã bị đánh
+      if (node.hp < node.maxHp) {
+        const bw = 28;
+        ctx.fillStyle = 'rgba(0,0,0,.5)';
+        ctx.fillRect(sx-bw/2, sy-26, bw, 5);
+        ctx.fillStyle = '#4caf50';
+        ctx.fillRect(sx-bw/2, sy-26, bw*(node.hp/node.maxHp), 5);
+      }
+
+      // vòng gợi ý khi đứng gần
+      const d = Math.hypot(player.x - node.x, player.y - node.y);
+      if (d < 46) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.setLineDash([4,4]);
+        ctx.arc(sx, sy, 26, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+  }
+
+  function drawFarmPlots() {
+    for (const p of FARM_PLOTS) {
+      const sx = p.x - camera.x, sy = p.y - camera.y;
+      if (sx < -40 || sy < -40 || sx > canvas.width+40 || sy > canvas.height+40) continue;
+      const status = farmPlotStatus(p.idx);
+
+      if (status.state === 'growing' || status.state === 'ready') {
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.globalAlpha = status.state === 'ready' ? 1 : (0.55 + status.progress*0.45);
+        ctx.fillText(status.state === 'ready' ? '✅' : ITEM_META[status.seed].icon, sx, sy+7);
+        ctx.globalAlpha = 1;
+
+        if (status.state === 'growing') {
+          const bw = 26;
+          ctx.fillStyle = 'rgba(0,0,0,.5)';
+          ctx.fillRect(sx-bw/2, sy-20, bw, 4);
+          ctx.fillStyle = '#8bc34a';
+          ctx.fillRect(sx-bw/2, sy-20, bw*status.progress, 4);
+        }
+      }
+
+      const d = Math.hypot(player.x - p.x, player.y - p.y);
+      if (d < 34) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.setLineDash([4,4]);
+        ctx.arc(sx, sy, 20, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+  }
+
+
+  // ---------- CAMERA ----------
+  const camera = { x:0, y:0 };
+  function updateCamera() {
+    camera.x = player.x - canvas.width/2;
+    camera.y = player.y - canvas.height/2;
+    camera.x = Math.max(0, Math.min(WORLD_W - canvas.width, camera.x));
+    camera.y = Math.max(0, Math.min(WORLD_H - canvas.height, camera.y));
+  }
+
+  // ---------- VÒNG LẶP GAME ----------
+  let lastTime = performance.now();
+
+  function update(dt) {
+    // gộp input bàn phím + joystick
+    const kv = keyboardVector();
+    let dx = kv.dx + joyVec.dx;
+    let dy = kv.dy + joyVec.dy;
+    const len = Math.hypot(dx, dy);
+    if (len > 0.001) {
+      dx /= len; dy /= len;
+
+      // xác định hướng cho animation
+      if (Math.abs(dx) > Math.abs(dy)) player.dir = dx > 0 ? 'right' : 'left';
+      else player.dir = dy > 0 ? 'down' : 'up';
+
+      const moveX = dx * player.speed * dt;
+      const moveY = dy * player.speed * dt;
+
+      // di chuyển trục X rồi kiểm tra va chạm riêng biệt (trượt theo tường)
+      const nextX = player.x + moveX;
+      if (!isSolidAtWorld(nextX + Math.sign(moveX)*player.w/2, player.y - player.h/3) &&
+          !isSolidAtWorld(nextX + Math.sign(moveX)*player.w/2, player.y + player.h/3)) {
+        player.x = Math.max(player.w/2, Math.min(WORLD_W - player.w/2, nextX));
+      }
+      const nextY = player.y + moveY;
+      if (!isSolidAtWorld(player.x, nextY + Math.sign(moveY)*player.h/2)) {
+        player.y = Math.max(player.h/2, Math.min(WORLD_H - player.h/2, nextY));
+      }
+
+      player.frameTimer += dt;
+      if (player.frameTimer > 0.12) { player.frame = (player.frame+1) % 4; player.frameTimer = 0; }
+      broadcastPosition();
+    } else {
+      player.frame = 0;
+    }
+
+    updateCamera();
+    updateChopFx(dt);
+    updateResourceNodes();
+  }
+
+  function drawWorld() {
+    const startCol = Math.floor(camera.x / TILE);
+    const endCol   = Math.ceil((camera.x + canvas.width) / TILE);
+    const startRow = Math.floor(camera.y / TILE);
+    const endRow   = Math.ceil((camera.y + canvas.height) / TILE);
+
+    for (let ty = startRow; ty < endRow; ty++) {
+      for (let tx = startCol; tx < endCol; tx++) {
+        if (tx < 0 || ty < 0 || tx >= WORLD_COLS || ty >= WORLD_ROWS) continue;
+        const type = worldMap[ty][tx];
+        ctx.fillStyle = TILE_COLORS[type];
+        const sx = tx*TILE - camera.x;
+        const sy = ty*TILE - camera.y;
+        ctx.fillRect(sx, sy, TILE, TILE);
+
+        // viền nhẹ để phân biệt tile (tùy chọn, có thể bỏ để nhìn mượt hơn)
+        ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+        ctx.strokeRect(sx, sy, TILE, TILE);
+      }
+    }
+  }
+
+  function drawInteractables() {
+    for (const obj of interactables) {
+      const sx = obj.x - camera.x;
+      const sy = obj.y - camera.y;
+      if (sx < -50 || sy < -50 || sx > canvas.width+50 || sy > canvas.height+50) continue;
+
+      ctx.beginPath();
+      ctx.fillStyle = obj.color;
+      ctx.arc(sx, sy, 22, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      if (obj.icon) {
+        ctx.font = '22px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(obj.icon, sx, sy+8);
+      }
+
+      ctx.fillStyle = '#fff';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(obj.name, sx, sy - 30);
+
+      // vòng tương tác gợi ý khi gần
+      const d = Math.hypot(player.x - obj.x, player.y - obj.y);
+      if (d < obj.r + 34) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.setLineDash([4,4]);
+        ctx.arc(sx, sy, obj.r+34, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 11px Arial';
+        ctx.fillText('Nhấn E / Dùng', sx, sy + obj.r + 46);
+      }
+    }
+  }
+
+  function drawPlayer() {
+    const sx = player.x - camera.x;
+    const sy = player.y - camera.y;
+
+    // bóng đổ
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.ellipse(sx, sy + player.h/2 - 2, player.w/2.4, 6, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // thân nhân vật (hình chữ nhật bo góc đơn giản, dễ thay bằng sprite sau)
+    ctx.fillStyle = '#ffcc66';
+    roundRect(ctx, sx - player.w/2, sy - player.h/2, player.w, player.h, 6);
+    ctx.fill();
+
+    // mắt / hướng nhìn
+    ctx.fillStyle = '#333';
+    const eyeOffset = { up:[-5,-9,5,-9], down:[-5,3,5,3], left:[-8,-2,-2,-2], right:[2,-2,8,-2] }[player.dir];
+    ctx.fillRect(sx+eyeOffset[0]-2, sy+eyeOffset[1]-2, 4, 4);
+    ctx.fillRect(sx+eyeOffset[2]-2, sy+eyeOffset[3]-2, 4, 4);
+
+    // hiệu ứng bước chân nhẹ khi di chuyển
+    if (player.frame % 2 === 1) {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.beginPath();
+      ctx.arc(sx, sy + player.h/2, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // vẽ những người chơi khác đang ở chung thế giới (realtime)
+  function drawOtherPlayers() {
+    const now = Date.now();
+    for (const id in otherPlayers) {
+      const p = otherPlayers[id];
+      if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+      if (p.t && now - p.t > 20000) continue; // dữ liệu quá cũ (có thể đã thoát), bỏ qua
+
+      const sx = p.x - camera.x;
+      const sy = p.y - camera.y;
+      if (sx < -60 || sy < -60 || sx > canvas.width+60 || sy > canvas.height+60) continue;
+
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.ellipse(sx, sy + player.h/2 - 2, player.w/2.4, 6, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      ctx.fillStyle = '#66ccff';
+      roundRect(ctx, sx - player.w/2, sy - player.h/2, player.w, player.h, 6);
+      ctx.fill();
+
+      ctx.fillStyle = '#222';
+      const dir = p.dir || 'down';
+      const eyeOffset = { up:[-5,-9,5,-9], down:[-5,3,5,3], left:[-8,-2,-2,-2], right:[2,-2,8,-2] }[dir];
+      ctx.fillRect(sx+eyeOffset[0]-2, sy+eyeOffset[1]-2, 4, 4);
+      ctx.fillRect(sx+eyeOffset[2]-2, sy+eyeOffset[3]-2, 4, 4);
+
+      ctx.fillStyle = '#fff';
+      ctx.font = '11px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.name || id, sx, sy - player.h/2 - 8);
+    }
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+
+  function drawMinimap() {
+    miniCtx.clearRect(0,0,miniCanvas.width, miniCanvas.height);
+    const scaleX = miniCanvas.width / WORLD_W;
+    const scaleY = miniCanvas.height / WORLD_H;
+
+    for (let ty = 0; ty < WORLD_ROWS; ty += 2) {
+      for (let tx = 0; tx < WORLD_COLS; tx += 2) {
+        miniCtx.fillStyle = TILE_COLORS[worldMap[ty][tx]];
+        miniCtx.fillRect(tx*TILE*scaleX, ty*TILE*scaleY, TILE*scaleX*2, TILE*scaleY*2);
+      }
+    }
+
+    // chấm nhỏ tài nguyên còn sống trên minimap
+    for (const node of resourceNodes) {
+      if (!node.alive) continue;
+      miniCtx.fillStyle = node.type === 'wood' ? '#2e7d32' : '#bdbdbd';
+      miniCtx.fillRect(node.x*scaleX-1, node.y*scaleY-1, 2, 2);
+    }
+
+    // vị trí những người chơi khác đang ở chung thế giới
+    const nowMini = Date.now();
+    miniCtx.fillStyle = '#66ccff';
+    for (const id in otherPlayers) {
+      const p = otherPlayers[id];
+      if (!p || typeof p.x !== 'number') continue;
+      if (p.t && nowMini - p.t > 20000) continue;
+      miniCtx.beginPath();
+      miniCtx.arc(p.x*scaleX, p.y*scaleY, 2.5, 0, Math.PI*2);
+      miniCtx.fill();
+    }
+
+    // vị trí người chơi
+    miniCtx.fillStyle = '#ff2222';
+    miniCtx.beginPath();
+    miniCtx.arc(player.x*scaleX, player.y*scaleY, 3, 0, Math.PI*2);
+    miniCtx.fill();
+
+    // khung camera hiện tại
+    miniCtx.strokeStyle = 'rgba(255,255,255,0.8)';
+    miniCtx.strokeRect(camera.x*scaleX, camera.y*scaleY, canvas.width*scaleX, canvas.height*scaleY);
+  }
+
+  function render() {
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+    drawWorld();
+    drawFarmPlots();
+    drawResourceNodes();
+    drawInteractables();
+    drawOtherPlayers();
+    drawPlayer();
+    drawChopFx();
+    drawMinimap();
+  }
+
+  function loop(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- DÙNG CHUNG TÀI KHOẢN CHAT + LƯU TIẾN TRÌNH VÀO FIREBASE CỦA CHAT ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyBvI-JLyimy7e_IXxsaHDDCG_f1lNBkQ2k",
+    authDomain: "world-e431e.firebaseapp.com",
+    databaseURL: "https://world-e431e-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "world-e431e",
+    storageBucket: "world-e431e.firebasestorage.app",
+    messagingSenderId: "382023798145",
+    appId: "1:382023798145:web:9af37cb2131416f2e96c80",
+    measurementId: "G-CVHYP9KRH0"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // Dùng chung localStorage với trang đăng nhập (auth.html)
+  const CHAT_LS_KEY = 'world_login';
+  function toKey(name) {
+    return name.trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_');
+  }
+
+  let myId = '';    // tên hiển thị (giống trang chat)
+  let myKey = '';   // key an toàn dùng làm đường dẫn Firebase
+  let saveRef = null;
+  // Chỉ cho phép lưu sau khi đã tải xong (hoặc xác nhận chưa có save),
+  // tránh ghi đè tiến trình thật bằng dữ liệu mặc định khi vừa vào game.
+  let progressReady = false;
+
+  const LOCAL_SAVE_PREFIX = 'game_ow_save_v2_';
+
+  function readLocalSave(key) {
+    if (!key) return null;
+    try {
+      const raw = localStorage.getItem(LOCAL_SAVE_PREFIX + key);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      return data && typeof data === 'object' ? data : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeLocalSave(key, payload) {
+    if (!key || !payload) return;
+    try {
+      localStorage.setItem(LOCAL_SAVE_PREFIX + key, JSON.stringify(payload));
+    } catch (e) {}
+  }
+
+  function buildSavePayload() {
+    return {
+      inventory: Object.assign({}, inventory),
+      tools: Object.assign({}, playerTools),
+      farm: JSON.parse(JSON.stringify(farmPlots)),
+      pos: { x: player.x, y: player.y },
+      updatedAt: Date.now()
+    };
+  }
+
+  function applySaveData(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (data.inventory && typeof data.inventory === 'object') {
+      Object.keys(inventory).forEach(k => delete inventory[k]);
+      Object.assign(inventory, data.inventory);
+    }
+    if (data.tools && typeof data.tools === 'object') {
+      playerTools.axe = 0;
+      playerTools.pickaxe = 0;
+      playerTools.rod = 0;
+      Object.assign(playerTools, data.tools);
+    }
+    if (data.farm && typeof data.farm === 'object') {
+      Object.keys(farmPlots).forEach(k => delete farmPlots[k]);
+      Object.assign(farmPlots, data.farm);
+    }
+    // dọn vật phẩm cũ không còn dùng
+    ['fiber','seed_corn','seed_potato','axe','pickaxe','rod'].forEach(k => delete inventory[k]);
+    if (data.pos && typeof data.pos.x === 'number' && typeof data.pos.y === 'number') {
+      player.x = data.pos.x;
+      player.y = data.pos.y;
+    }
+    return true;
+  }
+
+  const backBtn = document.getElementById('backBtn');
+  if (backBtn) {
+    backBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      let left = false;
+      const goBack = () => {
+        if (left) return;
+        left = true;
+        window.location.href = 'auth.html';
+      };
+      // Luôn ghi localStorage đồng bộ trước khi rời trang (không phụ thuộc mạng)
+      if (progressReady && myKey) {
+        clearTimeout(saveDebounceTimer);
+        writeLocalSave(myKey, buildSavePayload());
+      }
+      if (!saveRef || !progressReady) { goBack(); return; }
+      saveProgress().then(goBack).catch(goBack);
+      setTimeout(goBack, 3000);
+    });
+  }
+
+  // Đăng nhập bằng tài khoản đã đăng nhập ở auth.html (đọc localStorage chung).
+  // Nếu chưa đăng nhập thì quay lại trang đăng nhập.
+  (async function initFromChatAccount() {
+    const savedName = localStorage.getItem(CHAT_LS_KEY);
+    if (!savedName) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    const key = toKey(savedName);
+    try {
+      const userRef = db.ref('chat_users').child(key);
+      const snap = await userRef.get();
+      if (!snap.exists()) {
+        // Tạo bản ghi user nếu chưa có (đăng ký từ auth.html)
+        await userRef.set({
+          displayName: savedName,
+          createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+      }
+      const data = snap.exists() ? snap.val() : { displayName: savedName };
+      myId = data.displayName || savedName;
+      myKey = key;
+      document.getElementById('playerTag').textContent = '👤 ' + myId;
+      saveRef = db.ref('game_open_world/' + myKey);
+      loadProgress();
+      initMultiplayer();
+    } catch (e) {
+      console.error(e);
+      // Vẫn cho vào game nếu chỉ lỗi mạng, miễn là đã có localStorage
+      myId = savedName;
+      myKey = key;
+      document.getElementById('playerTag').textContent = '👤 ' + myId;
+      saveRef = db.ref('game_open_world/' + myKey);
+      loadProgress();
+      initMultiplayer();
+    }
+  })();
+
+  function loadProgress() {
+    const localData = readLocalSave(myKey);
+
+    const finish = (data, fromLabel) => {
+      const ok = applySaveData(data);
+      renderInventory();
+      renderHotbar();
+      progressReady = true;
+      if (ok) {
+        showMessage('☁️ Đã tải tiến trình' + (fromLabel ? ' (' + fromLabel + ')' : ''), 1600);
+        // Đồng bộ bản đã chọn lên cả local + Firebase
+        saveProgress();
+      }
+    };
+
+    if (!saveRef) {
+      finish(localData, localData ? 'máy' : '');
+      return;
+    }
+
+    // Timeout: nếu Firebase chậm >2.5s thì dùng local trước
+    let settled = false;
+    const localFallbackTimer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      finish(localData, localData ? 'máy' : '');
+    }, 2500);
+
+    saveRef.once('value').then(snap => {
+      if (settled) {
+        // Đã dùng local rồi; nếu Firebase mới hơn thì áp dụng lại
+        const remote = snap.exists() ? (snap.val() || null) : null;
+        if (remote && localData) {
+          const rt = Number(remote.updatedAt) || 0;
+          const lt = Number(localData.updatedAt) || 0;
+          if (rt > lt) {
+            applySaveData(remote);
+            renderInventory();
+            renderHotbar();
+            writeLocalSave(myKey, buildSavePayload());
+          }
+        } else if (remote && !localData) {
+          applySaveData(remote);
+          renderInventory();
+          renderHotbar();
+          writeLocalSave(myKey, buildSavePayload());
+        }
+        return;
+      }
+      settled = true;
+      clearTimeout(localFallbackTimer);
+      const remote = snap.exists() ? (snap.val() || null) : null;
+      let chosen = null;
+      let label = '';
+      if (remote && localData) {
+        const rt = Number(remote.updatedAt) || 0;
+        const lt = Number(localData.updatedAt) || 0;
+        if (lt > rt) {
+          chosen = localData;
+          label = 'máy';
+        } else {
+          chosen = remote;
+          label = 'cloud';
+        }
+      } else {
+        chosen = remote || localData;
+        label = remote ? 'cloud' : (localData ? 'máy' : '');
+      }
+      finish(chosen, label);
+    }).catch(() => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(localFallbackTimer);
+      finish(localData, localData ? 'máy' : '');
+    });
+  }
+
+  function saveProgress() {
+    if (!myKey || !progressReady) return Promise.resolve();
+    const payload = buildSavePayload();
+    // localStorage ghi đồng bộ — sống sót khi đóng tab / mất mạng
+    writeLocalSave(myKey, payload);
+    if (!saveRef) return Promise.resolve();
+    return saveRef.set({
+      inventory: payload.inventory,
+      tools: payload.tools,
+      farm: payload.farm,
+      pos: payload.pos,
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    }).catch(()=>{});
+  }
+
+  // Lưu ngay (debounce ~0.4s) mỗi khi túi đồ / công cụ / nông trại đổi
+  let saveDebounceTimer = null;
+  function scheduleSave() {
+    if (!myKey || !progressReady) return;
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(() => { saveProgress(); }, 400);
+  }
+
+  // tự động lưu định kỳ + khi rời trang / ẩn tab
+  setInterval(saveProgress, 4000);
+  window.addEventListener('beforeunload', () => { saveProgress(); });
+  window.addEventListener('pagehide', () => { saveProgress(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveProgress(); });
+
+  // ---------- THẾ GIỚI CHUNG (MULTIPLAYER REALTIME) ----------
+  // Tất cả tài khoản khi vào game đều đứng chung 1 phòng "main",
+  // thấy nhau di chuyển realtime qua Firebase Realtime Database.
+  const WORLD_ROOM_ID = 'main';
+  let playersRef = null;
+  let myPlayerRef = null;
+  const otherPlayers = {}; // id khác -> {x,y,dir,name,t}
+  let lastSentX = null, lastSentY = null, lastSentDir = null, lastSendTime = 0;
+
+  function initMultiplayer() {
+    if (!myKey || playersRef) return;
+    playersRef = db.ref('game_open_world_room/' + WORLD_ROOM_ID + '/players');
+    myPlayerRef = playersRef.child(myKey);
+
+    // tự xoá mình khỏi phòng nếu mất kết nối / đóng tab
+    myPlayerRef.onDisconnect().remove();
+
+    playersRef.on('child_added', snap => {
+      if (snap.key === myKey) return;
+      otherPlayers[snap.key] = snap.val();
+    });
+    playersRef.on('child_changed', snap => {
+      if (snap.key === myKey) return;
+      otherPlayers[snap.key] = snap.val();
+    });
+    playersRef.on('child_removed', snap => {
+      delete otherPlayers[snap.key];
+    });
+
+    initChat();
+  }
+
+  // ---------- CHAT CHUNG (BONG BÓNG GÓC MÀN HÌNH) ----------
+  let chatRef = null;
+  let chatLoaded = false; // để không hiện chấm đỏ với các tin nhắn cũ tải lần đầu
+  const chatBubbleEl = document.getElementById('chatBubble');
+  const chatDotEl = chatBubbleEl.querySelector('.chatDot');
+  const chatPanelEl = document.getElementById('chatPanel');
+  const chatMessagesEl = document.getElementById('chatMessages');
+  const chatInputEl = document.getElementById('chatInput');
+  const chatSendBtnEl = document.getElementById('chatSendBtn');
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, ch => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[ch]));
+  }
+
+  function appendChatMessage(msg) {
+    if (!msg) return;
+    const div = document.createElement('div');
+    div.className = 'chatMsg';
+    div.innerHTML = `<b>${escapeHtml(msg.name || '?')}:</b> ${escapeHtml(msg.text || '')}`;
+    chatMessagesEl.appendChild(div);
+    while (chatMessagesEl.children.length > 40) chatMessagesEl.removeChild(chatMessagesEl.firstChild);
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    if (chatLoaded && chatPanelEl.style.display !== 'flex') {
+      chatDotEl.style.display = 'block';
+    }
+  }
+
+  function initChat() {
+    if (chatRef) return;
+    chatRef = db.ref('game_open_world_room/' + WORLD_ROOM_ID + '/chat');
+    chatRef.limitToLast(30).on('child_added', snap => {
+      appendChatMessage(snap.val());
+    });
+    setTimeout(() => { chatLoaded = true; }, 1200); // tránh nháy chấm đỏ với lịch sử cũ
+  }
+
+  function sendChatMessage() {
+    const text = chatInputEl.value.trim();
+    if (!text || !chatRef || !myKey) return;
+    chatRef.push({
+      name: myId,
+      text: text.slice(0, 150),
+      t: firebase.database.ServerValue.TIMESTAMP
+    });
+    chatInputEl.value = '';
+  }
+
+  function toggleChat() {
+    const open = chatPanelEl.style.display === 'flex';
+    chatPanelEl.style.display = open ? 'none' : 'flex';
+    if (!open) {
+      chatDotEl.style.display = 'none';
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    }
+  }
+
+  chatBubbleEl.addEventListener('click', toggleChat);
+  chatBubbleEl.addEventListener('touchstart', e => { e.preventDefault(); toggleChat(); });
+  chatSendBtnEl.addEventListener('click', sendChatMessage);
+  chatInputEl.addEventListener('keydown', e => {
+    e.stopPropagation(); // không để phím gõ chat điều khiển nhân vật di chuyển
+    if (e.key === 'Enter') sendChatMessage();
+  });
+  chatInputEl.addEventListener('keyup', e => e.stopPropagation());
+
+  function broadcastPosition(force) {
+    if (!myPlayerRef) return;
+    const now = performance.now();
+    if (!force) {
+      if (now - lastSendTime < 120) return; // giới hạn tần suất gửi lên server
+      if (player.x === lastSentX && player.y === lastSentY && player.dir === lastSentDir) return;
+    }
+    lastSentX = player.x; lastSentY = player.y; lastSentDir = player.dir;
+    lastSendTime = now;
+    myPlayerRef.set({
+      x: player.x, y: player.y, dir: player.dir,
+      name: myId,
+      t: firebase.database.ServerValue.TIMESTAMP
+    });
+  }
+  // gửi lại vị trí định kỳ dù đứng yên, để timestamp luôn mới
+  // (tránh bị các người chơi khác coi là "đã rời phòng")
+  setInterval(() => broadcastPosition(true), 8000);
+
+
+  const rotateRoot = document.getElementById('rotateRoot');
+  const gameFrame = document.getElementById('gameFrame');
+
+  function layout() {
+    // dùng document.documentElement.clientWidth/Height: không đổi khi thanh địa chỉ
+    // Chrome ẩn/hiện (khác với window.innerHeight hay bị nhảy số)
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const coarse = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
+    const forced = coarse && vh > vw; // điện thoại đang cầm dọc -> ép ngang
+
+    if (forced) {
+      rotateRoot.classList.add('forced-landscape');
+      rotateRoot.style.width  = vh + 'px';
+      rotateRoot.style.height = vw + 'px';
+    } else {
+      rotateRoot.classList.remove('forced-landscape');
+      rotateRoot.style.width  = vw + 'px';
+      rotateRoot.style.height = vh + 'px';
+    }
+
+    // không gian khả dụng thực tế cho khung game (sau khi xoay)
+    const availW = forced ? vh : vw;
+    const availH = forced ? vw : vh;
+
+    const ratio = 960/540;
+    let w = availW, h = availW/ratio;
+    if (h > availH) { h = availH; w = availH*ratio; }
+
+    gameFrame.style.width  = w + 'px';
+    gameFrame.style.height = h + 'px';
+    canvas.style.width  = w + 'px';
+    canvas.style.height = h + 'px';
+
+    positionInvBar();
+  }
+
+  // Đặt lại vị trí thanh túi đồ (ngay dưới nút "Trở về") theo tọa độ cục bộ
+  // của gameFrame, để không bị lệch ra ngoài vùng nhìn thấy khi bị xoay ngang.
+  function positionInvBar() {
+    const backBtnEl = document.getElementById('backBtn');
+    const invBarEl = document.getElementById('invBar');
+    if (!backBtnEl || !invBarEl || !gameFrame) return;
+    const off = offsetWithin(backBtnEl, gameFrame);
+    invBarEl.style.top = (off.y + backBtnEl.offsetHeight + 8) + 'px';
+    invBarEl.style.left = off.x + 'px';
+  }
+
+  window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', () => setTimeout(layout, 150));
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', layout);
+  }
+  layout();
+
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
