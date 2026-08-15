@@ -172,6 +172,46 @@
     font-size:12px; text-shadow:0 1px 2px rgba(0,0,0,.8); white-space:nowrap;
   }
   .invItem .ic { font-size:14px; }
+  .invItem.eatable {
+    cursor:pointer; padding:2px 5px; border-radius:6px;
+    background:rgba(255,210,120,.18); border:1px solid rgba(255,210,120,.4);
+  }
+  .invItem.eatable:active { background:rgba(255,210,120,.35); }
+
+  /* ---------- CHỈ SỐ SINH TỒN (HP / NĂNG LƯỢNG) + NGÀY-ĐÊM/THỜI TIẾT ---------- */
+  #statusBars {
+    position:absolute; top:44px; right:8px; z-index:12;
+    display:flex; flex-direction:column; gap:5px; width:150px;
+    background:rgba(0,0,0,.35); padding:8px 10px; border-radius:10px;
+  }
+  .statRow { display:flex; align-items:center; gap:6px; }
+  .statRow .ic { font-size:13px; width:16px; text-align:center; }
+  .statBarWrap {
+    flex:1; height:10px; border-radius:6px; overflow:hidden;
+    background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25);
+  }
+  .statBarFill { height:100%; width:100%; transition:width .25s ease; }
+  #hpFill { background:linear-gradient(90deg,#ff5f5f,#ff9a9a); }
+  #stamFill { background:linear-gradient(90deg,#ffb84d,#ffe08a); }
+  #dayNightBadge {
+    display:flex; align-items:center; gap:5px;
+    font-size:11px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.8);
+    font-weight:bold; margin-top:1px;
+  }
+  #nightOverlay {
+    position:absolute; inset:0; z-index:6; pointer-events:none;
+    background:rgba(10,15,45,0); transition:background 1s linear;
+  }
+  #weatherLayer {
+    position:absolute; inset:0; z-index:7; pointer-events:none; overflow:hidden;
+  }
+  .weatherDrop {
+    position:absolute; top:-20px; width:2px; height:14px;
+    background:rgba(180,210,255,.55); border-radius:2px;
+  }
+  .weatherFlake {
+    position:absolute; top:-10px; color:#fff; font-size:12px; opacity:.85;
+  }
 
   /* ---------- CỬA HÀNG (giao diện quầy hàng gỗ ấm áp) ---------- */
   #shopOverlay {
@@ -341,6 +381,19 @@
     </div>
 
     <div id="invBar"></div>
+    <div id="statusBars">
+      <div class="statRow">
+        <span class="ic">❤️</span>
+        <div class="statBarWrap"><div class="statBarFill" id="hpFill"></div></div>
+      </div>
+      <div class="statRow">
+        <span class="ic">⚡</span>
+        <div class="statBarWrap"><div class="statBarFill" id="stamFill"></div></div>
+      </div>
+      <div id="dayNightBadge"><span id="dayNightIcon">☀️</span><span id="dayNightText">Ban ngày</span><span id="weatherIcon"></span></div>
+    </div>
+    <div id="nightOverlay"></div>
+    <div id="weatherLayer"></div>
 
     <div id="msgBox"></div>
     <div id="helpHint">demo</div>
@@ -406,6 +459,19 @@
   const ctx = canvas.getContext('2d');
   const miniCanvas = document.getElementById('minimap');
   const miniCtx = miniCanvas.getContext('2d');
+
+  // ---------- HUD SINH TỒN / NGÀY-ĐÊM / THỜI TIẾT ----------
+  const hpFillEl = document.getElementById('hpFill');
+  const stamFillEl = document.getElementById('stamFill');
+  const dayNightIconEl = document.getElementById('dayNightIcon');
+  const dayNightTextEl = document.getElementById('dayNightText');
+  const weatherIconEl = document.getElementById('weatherIcon');
+  const nightOverlayEl = document.getElementById('nightOverlay');
+  const weatherLayerEl = document.getElementById('weatherLayer');
+  function updateStatusHud() {
+    if (hpFillEl) hpFillEl.style.width = Math.max(0, (player.hp/player.maxHp)*100) + '%';
+    if (stamFillEl) stamFillEl.style.width = Math.max(0, (player.stamina/player.maxStamina)*100) + '%';
+  }
 
   // ---------- CẤU HÌNH THẾ GIỚI ----------
   const TILE = 40;                 // kích thước 1 ô tile (px)
@@ -578,9 +644,13 @@
       bar.innerHTML = '<div class="invItem" style="opacity:.6">Túi đồ trống</div>';
       return;
     }
-    bar.innerHTML = entries.map(([k,v]) =>
-      `<div class="invItem"><span class="ic">${(ITEM_META[k]||{}).icon||'❔'}</span>${v}</div>`
-    ).join('');
+    bar.innerHTML = entries.map(([k,v]) => {
+      const eatable = FOOD_STAMINA[k] != null;
+      return `<div class="invItem${eatable ? ' eatable' : ''}"${eatable ? ` data-eat="${k}" title="Bấm để ăn, hồi ${FOOD_STAMINA[k]} năng lượng"` : ''}><span class="ic">${(ITEM_META[k]||{}).icon||'❔'}</span>${v}</div>`;
+    }).join('');
+    bar.querySelectorAll('[data-eat]').forEach(el => {
+      el.addEventListener('click', () => eatFood(el.dataset.eat));
+    });
   }
   renderInventory();
 
@@ -622,9 +692,24 @@
     const st = farmPlots[idx];
     if (!st || !CROP_META[st.seed]) return { state:'empty' };
     const meta = CROP_META[st.seed];
-    const elapsed = (Date.now() - st.plantedAt) / 1000;
+    // Mưa giúp cây lớn nhanh hơn: cộng dồn "thời gian hiệu dụng" mỗi khi hệ thống cập nhật
+    const elapsed = st.effElapsed != null ? st.effElapsed : (Date.now() - st.plantedAt) / 1000;
     if (elapsed >= meta.growTime) return { state:'ready', seed: st.seed };
     return { state:'growing', seed: st.seed, progress: Math.min(1, elapsed / meta.growTime) };
+  }
+  // Cộng dồn thời gian lớn hiệu dụng cho tất cả ô đang trồng, tăng tốc khi trời mưa
+  let lastFarmTickAt = Date.now();
+  function updateFarmGrowth() {
+    const now = Date.now();
+    const dtSec = (now - lastFarmTickAt) / 1000;
+    lastFarmTickAt = now;
+    const mul = cropGrowthMultiplier();
+    for (const idx in farmPlots) {
+      const st = farmPlots[idx];
+      if (!st) continue;
+      if (st.effElapsed == null) st.effElapsed = (now - st.plantedAt) / 1000;
+      st.effElapsed += dtSec * mul;
+    }
   }
   function plantAt(plotIdx) {
     const seedId = SEED_PRIORITY.find(id => (inventory[id]||0) > 0);
@@ -852,9 +937,193 @@
     w: 28, h: 28,
     speed: 220,        // px/giây
     hp: 100, maxHp: 100,
+    stamina: 100, maxStamina: 100, // năng lượng: giảm dần theo hành động, hết thì di chuyển/thao tác chậm hơn
     dir: 'down',
     frame: 0, frameTimer: 0
   };
+
+  // ---------- HỆ THỐNG NĂNG LƯỢNG (ĐÓI) ----------
+  // Giảm dần theo thời gian + mỗi lần chặt/đào/câu tốn thêm năng lượng.
+  // Hết năng lượng -> nhân vật di chuyển & thao tác chậm hơn (không chết đói).
+  // Ăn Cá 🐟 hoặc Lúa 🌾 (bấm vào icon trong túi đồ) để hồi năng lượng.
+  const STAMINA_DRAIN_PER_SEC = 100 / 480; // cạn hết trong khoảng 8 phút nếu chỉ đi lại
+  const STAMINA_COST_GATHER = 3;           // mỗi lần chặt/đào/giật cần tốn thêm
+  const FOOD_STAMINA = { fish: 35, rice: 20 }; // lượng năng lượng hồi khi ăn
+  function drainStamina(dt) {
+    player.stamina = Math.max(0, player.stamina - STAMINA_DRAIN_PER_SEC * dt);
+    updateStatusHud();
+  }
+  function useStaminaForAction(cost) {
+    player.stamina = Math.max(0, player.stamina - cost);
+    updateStatusHud();
+  }
+  function staminaSpeedMultiplier() {
+    // 0 năng lượng -> chậm 45%; đầy năng lượng -> tốc độ bình thường
+    return player.stamina <= 0 ? 0.55 : (0.55 + 0.45 * (player.stamina / player.maxStamina));
+  }
+  function eatFood(itemId) {
+    const gain = FOOD_STAMINA[itemId];
+    if (!gain) return;
+    if ((inventory[itemId]||0) <= 0) { showMessage('Bạn không có gì để ăn món này!', 1200); return; }
+    inventory[itemId] -= 1;
+    player.stamina = Math.min(player.maxStamina, player.stamina + gain);
+    renderInventory();
+    updateStatusHud();
+    showMessage(`😋 Ăn ${ITEM_META[itemId].icon} ${ITEM_META[itemId].name}, hồi ${gain} năng lượng!`, 1400);
+    if (typeof sfx !== 'undefined') sfx.harvest();
+    if (typeof scheduleSave === 'function') scheduleSave();
+  }
+
+  // ---------- NGÀY / ĐÊM ----------
+  const DAY_LENGTH_SEC = 300; // 1 chu kỳ ngày-đêm đầy đủ = 5 phút
+  let worldClock = 0; // 0..DAY_LENGTH_SEC, dùng chung logic sáng/tối
+  function isNightTime() {
+    const t = (worldClock % DAY_LENGTH_SEC) / DAY_LENGTH_SEC; // 0..1
+    return t > 0.6 || t < 0.08; // khoảng 42% chu kỳ là ban đêm
+  }
+  function updateDayNight(dt) {
+    worldClock += dt;
+    const t = (worldClock % DAY_LENGTH_SEC) / DAY_LENGTH_SEC;
+    const night = isNightTime();
+    // độ tối mượt dần thay vì bật/tắt đột ngột
+    let darkness = 0;
+    if (t > 0.55 && t <= 0.65) darkness = (t-0.55)/0.10;       // chạng vạng -> tối dần
+    else if (t > 0.65 && t <= 0.98) darkness = 1;               // ban đêm
+    else if (t > 0.98 || t <= 0.08) darkness = t > 0.98 ? 1-((t-0.98)/0.10) : 1-(t/0.08);
+    darkness = Math.max(0, Math.min(1, darkness));
+    if (nightOverlayEl) nightOverlayEl.style.background = `rgba(8,10,35,${(darkness*0.62).toFixed(2)})`;
+    if (dayNightIconEl && dayNightTextEl) {
+      dayNightIconEl.textContent = night ? '🌙' : '☀️';
+      dayNightTextEl.textContent = night ? 'Ban đêm' : 'Ban ngày';
+    }
+    return night;
+  }
+
+  // ---------- THỜI TIẾT (ngẫu nhiên độc lập, đổi theo chu kỳ riêng) ----------
+  const WEATHER_TYPES = ['clear','rain','snow'];
+  let currentWeather = 'clear';
+  let weatherTimer = 0;
+  let weatherNextChange = 40 + Math.random()*50;
+  const weatherParticles = [];
+  function updateWeather(dt) {
+    weatherTimer += dt;
+    if (weatherTimer >= weatherNextChange) {
+      weatherTimer = 0;
+      weatherNextChange = 45 + Math.random()*60;
+      const roll = Math.random();
+      currentWeather = roll < 0.55 ? 'clear' : (roll < 0.8 ? 'rain' : 'snow');
+      if (weatherIconEl) weatherIconEl.textContent = currentWeather === 'rain' ? '🌧️' : currentWeather === 'snow' ? '❄️' : '';
+      rebuildWeatherParticles();
+    }
+    // di chuyển hạt mưa/tuyết
+    for (const p of weatherParticles) {
+      p.y += p.speed * dt;
+      p.x += (p.drift||0) * dt;
+      if (p.y > window.innerHeight + 20) { p.y = -20; p.x = Math.random()*window.innerWidth; }
+      p.el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+    }
+  }
+  function rebuildWeatherParticles() {
+    if (!weatherLayerEl) return;
+    weatherLayerEl.innerHTML = '';
+    weatherParticles.length = 0;
+    if (currentWeather === 'clear') return;
+    const count = currentWeather === 'rain' ? 46 : 30;
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = currentWeather === 'rain' ? 'weatherDrop' : 'weatherFlake';
+      if (currentWeather === 'snow') el.textContent = '❄';
+      weatherLayerEl.appendChild(el);
+      weatherParticles.push({
+        el,
+        x: Math.random()*window.innerWidth,
+        y: Math.random()*window.innerHeight,
+        speed: currentWeather === 'rain' ? (420 + Math.random()*160) : (40 + Math.random()*40),
+        drift: currentWeather === 'snow' ? (Math.random()*30-15) : 0
+      });
+    }
+  }
+  // Cây lớn nhanh hơn khi trời mưa: hệ số nhân thời gian trôi cho farmPlots
+  function cropGrowthMultiplier() {
+    return currentWeather === 'rain' ? 1.6 : 1;
+  }
+  // Tuyết làm chậm di chuyển
+  function weatherSpeedMultiplier() {
+    return currentWeather === 'snow' ? 0.8 : 1;
+  }
+
+  // ---------- QUÁI BAN ĐÊM ----------
+  // Xuất hiện ngẫu nhiên gần người chơi khi trời tối, đuổi theo và gây sát thương khi chạm.
+  // Người chơi có thể né (di chuyển ra xa) hoặc bấm "Dùng" khi ở gần để đánh lại (cần đang cầm rìu/cuốc).
+  const monsters = [];
+  const MAX_MONSTERS = 3;
+  let monsterSpawnTimer = 0;
+  function updateMonsters(dt, night) {
+    if (!night) {
+      // ban ngày: quái dần biến mất
+      if (monsters.length) {
+        for (let i = monsters.length-1; i>=0; i--) monsters[i].fadeOut = true;
+      }
+    }
+    if (night && monsters.length < MAX_MONSTERS) {
+      monsterSpawnTimer += dt;
+      if (monsterSpawnTimer > 6) {
+        monsterSpawnTimer = 0;
+        if (Math.random() < 0.5) spawnMonster();
+      }
+    }
+    for (let i = monsters.length - 1; i >= 0; i--) {
+      const m = monsters[i];
+      if (m.fadeOut) {
+        m.opacity = (m.opacity||1) - dt*0.8;
+        if (m.opacity <= 0) { monsters.splice(i,1); continue; }
+        continue;
+      }
+      const dx = player.x - m.x, dy = player.y - m.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 900) { monsters.splice(i,1); continue; } // quá xa thì dẹp bớt cho nhẹ
+      if (dist > 4) {
+        const spd = 65;
+        m.x += (dx/dist) * spd * dt;
+        m.y += (dy/dist) * spd * dt;
+      }
+      m.hitCooldown = Math.max(0, (m.hitCooldown||0) - dt);
+      if (dist < 20 && m.hitCooldown <= 0) {
+        m.hitCooldown = 1.1;
+        player.hp = Math.max(0, player.hp - 8);
+        updateStatusHud();
+        if (typeof sfx !== 'undefined') sfx.error();
+        showMessage('👻 Quái tấn công bạn! Né ra hoặc bấm Dùng để đánh lại.', 1200);
+      }
+    }
+  }
+  function spawnMonster() {
+    const ang = Math.random()*Math.PI*2;
+    const dist = 260 + Math.random()*140;
+    monsters.push({
+      x: Math.max(20, Math.min(WORLD_W-20, player.x + Math.cos(ang)*dist)),
+      y: Math.max(20, Math.min(WORLD_H-20, player.y + Math.sin(ang)*dist)),
+      hp: 3, opacity: 1
+    });
+  }
+  function attackNearbyMonster() {
+    for (let i = monsters.length - 1; i >= 0; i--) {
+      const m = monsters[i];
+      if (m.fadeOut) continue;
+      if (Math.hypot(player.x-m.x, player.y-m.y) < 46) {
+        m.hp -= 1;
+        if (typeof sfx !== 'undefined') sfx.mine();
+        if (m.hp <= 0) {
+          monsters.splice(i,1);
+          addItem('coin', 3);
+          showMessage('💀 Đã đánh bại quái! Nhận 3 💰', 1200);
+          if (typeof sfx !== 'undefined') sfx.pickup();
+        }
+        return true;
+      }
+    }
+    return false;
+  }
 
   // đưa player ra khỏi tile solid nếu spawn trúng chướng ngại
   (function ensureSafeSpawn(){
@@ -967,6 +1236,9 @@
   function tryInteract() {
     // Ưu tiên -1: nếu đang trong minigame câu cá, nút "Dùng" dùng để bắt nhịp
     if (fishTapHandler) { fishTapHandler(); return; }
+
+    // Ưu tiên -0.5: có quái ngay gần thì đánh trước
+    if (attackNearbyMonster()) return;
 
     // Ưu tiên 0: câu cá nếu đang cầm cần câu và đứng gần mặt nước
     if (equipped === 'rod' && isNearWater(player.x, player.y)) { doFishing(); return; }
@@ -1112,6 +1384,7 @@
       if (e) e.preventDefault();
       if (ended) return;
       if (typeof sfx !== 'undefined') sfx.jerk();
+      useStaminaForAction(1);
       const inZone = pos >= zoneStart && pos <= zoneStart + zoneW;
       if (inZone) {
         currentHits++;
@@ -1205,6 +1478,7 @@
       dmg = node.type === 'wood' ? 3 : 2;
     }
     node.hp -= dmg;
+    useStaminaForAction(STAMINA_COST_GATHER);
     spawnChopFx(node.x, node.y);
     if (node.type === 'wood') sfx.chop(); else sfx.mine();
 
@@ -1363,8 +1637,9 @@
       if (Math.abs(dx) > Math.abs(dy)) player.dir = dx > 0 ? 'right' : 'left';
       else player.dir = dy > 0 ? 'down' : 'up';
 
-      const moveX = dx * player.speed * dt;
-      const moveY = dy * player.speed * dt;
+      const spdMul = staminaSpeedMultiplier() * weatherSpeedMultiplier();
+      const moveX = dx * player.speed * spdMul * dt;
+      const moveY = dy * player.speed * spdMul * dt;
 
       // di chuyển trục X rồi kiểm tra va chạm riêng biệt (trượt theo tường)
       const nextX = player.x + moveX;
@@ -1387,6 +1662,11 @@
     updateCamera();
     updateChopFx(dt);
     updateResourceNodes();
+    drainStamina(dt);
+    const night = updateDayNight(dt);
+    updateWeather(dt);
+    updateMonsters(dt, night);
+    updateFarmGrowth();
   }
 
   function drawWorld() {
@@ -1575,10 +1855,31 @@
     drawFarmPlots();
     drawResourceNodes();
     drawInteractables();
+    drawMonsters();
     drawOtherPlayers();
     drawPlayer();
     drawChopFx();
     drawMinimap();
+  }
+
+  function drawMonsters() {
+    for (const m of monsters) {
+      const sx = m.x - camera.x, sy = m.y - camera.y;
+      if (sx < -40 || sy < -40 || sx > canvas.width+40 || sy > canvas.height+40) continue;
+      ctx.save();
+      ctx.globalAlpha = m.opacity != null ? Math.max(0, m.opacity) : 1;
+      ctx.beginPath();
+      ctx.fillStyle = '#5b3a86';
+      ctx.arc(sx, sy, 16, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#e6d6ff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.font = '18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('👻', sx, sy+6);
+      ctx.restore();
+    }
   }
 
   function loop(now) {
