@@ -398,6 +398,7 @@
       browserLocalPersistence,
       browserSessionPersistence
     } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
+    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBvI-JLyimy7e_IXxsaHDDCG_f1lNBkQ2k",
@@ -412,6 +413,25 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    const LS_KEY = 'world_login';
+    function toKey(name) {
+      return name.trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_');
+    }
+
+    async function enterGame(username) {
+      localStorage.setItem(LS_KEY, username);
+      try {
+        await set(ref(db, 'chat_users/' + toKey(username)), {
+          displayName: username,
+          lastLogin: Date.now()
+        });
+      } catch (e) {
+        console.warn('Không ghi được chat_users:', e);
+      }
+      window.location.href = 'map';
+    }
 
     // Elements
     const tabs = document.querySelectorAll('.tab');
@@ -487,8 +507,9 @@
         const persistence = remember ? browserLocalPersistence : browserSessionPersistence;
         await setPersistence(auth, persistence);
 
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, email, password);
         showMessage(`Đăng nhập thành công! Xin chào ${username}`, 'success');
+        setTimeout(() => enterGame(username), 600);
       } catch (error) {
         let msg = 'Đăng nhập thất bại. Vui lòng thử lại.';
         switch (error.code) {
@@ -507,7 +528,6 @@
             break;
         }
         showMessage(msg);
-      } finally {
         btnLogin.disabled = false;
         btnLogin.textContent = 'Đăng nhập';
       }
@@ -553,14 +573,9 @@
       btnRegister.textContent = 'Đang đăng ký...';
 
       try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await createUserWithEmailAndPassword(auth, email, password);
         showMessage(`Đăng ký thành công! Xin chào ${username}`, 'success');
-
-        // Tự chuyển sang tab Đăng nhập sau 1.5s
-        setTimeout(() => {
-          document.querySelector('.tab[data-tab="login"]').click();
-          document.getElementById('loginUsername').value = username;
-        }, 1500);
+        setTimeout(() => enterGame(username), 600);
       } catch (error) {
         let msg = 'Đăng ký thất bại. Vui lòng thử lại.';
         switch (error.code) {
@@ -572,7 +587,6 @@
             break;
         }
         showMessage(msg);
-      } finally {
         btnRegister.disabled = false;
         btnRegister.textContent = 'Đăng ký';
       }
@@ -590,7 +604,9 @@
       const provider = new GoogleAuthProvider();
       try {
         const result = await signInWithPopup(auth, provider);
-        showMessage(`Thành công! Xin chào ${result.user.displayName || result.user.email}`, 'success');
+        const name = result.user.displayName || (result.user.email || 'player').split('@')[0];
+        showMessage(`Thành công! Xin chào ${name}`, 'success');
+        setTimeout(() => enterGame(name), 600);
       } catch (error) {
         if (error.code !== 'auth/popup-closed-by-user') {
           showMessage('Đăng nhập Google thất bại: ' + error.message);
@@ -604,7 +620,9 @@
       const provider = new FacebookAuthProvider();
       try {
         const result = await signInWithPopup(auth, provider);
-        showMessage(`Thành công! Xin chào ${result.user.displayName || result.user.email}`, 'success');
+        const name = result.user.displayName || (result.user.email || 'player').split('@')[0];
+        showMessage(`Thành công! Xin chào ${name}`, 'success');
+        setTimeout(() => enterGame(name), 600);
       } catch (error) {
         if (error.code === 'auth/operation-not-allowed') {
           showMessage('Facebook Login chưa được bật trong Firebase Console.');
