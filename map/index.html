@@ -1540,7 +1540,7 @@
       const goBack = () => {
         if (left) return;
         left = true;
-        window.location.href = 'auth.html';
+        window.location.href = '/world';
       };
       // Luôn ghi localStorage đồng bộ trước khi rời trang (không phụ thuộc mạng)
       if (progressReady && myKey) {
@@ -1558,7 +1558,7 @@
   (async function initFromChatAccount() {
     const savedName = localStorage.getItem(CHAT_LS_KEY);
     if (!savedName) {
-      window.location.href = 'auth.html';
+      window.location.href = '/world';
       return;
     }
     const key = toKey(savedName);
