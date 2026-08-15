@@ -975,7 +975,7 @@
   }
 
   // ---------- NGÀY / ĐÊM ----------
-  const DAY_LENGTH_SEC = 300; // 1 chu kỳ ngày-đêm đầy đủ = 5 phút
+  const DAY_LENGTH_SEC = 1400; // 1 chu kỳ ngày-đêm đầy đủ = 5 phút
   let worldClock = 0; // 0..DAY_LENGTH_SEC, dùng chung logic sáng/tối
   function isNightTime() {
     const t = (worldClock % DAY_LENGTH_SEC) / DAY_LENGTH_SEC; // 0..1
@@ -1353,7 +1353,7 @@
     positionFishGameOverPlayer();
     const barW = fishBarWrapEl.clientWidth;
 
-    let requiredHits = 3;   // số lần bấm trúng cần để câu được cá
+    let requiredHits = 4;   // số lần bấm trúng cần để câu được cá
     let currentHits = 0;
     let missCount = 0;
     const maxMisses = 3;    // trượt quá số lần này thì cá sổng
@@ -1374,7 +1374,7 @@
     randomizeZone();
     fishCursorEl.style.left = '0px';
     fishProgEl.style.width = '0%';
-    fishHintEl.textContent = `🎣 Bấm "Dùng" đúng lúc! (0/${requiredHits})`;
+    fishHintEl.textContent = `🎣  (0/${requiredHits})`;
 
     function updateProg() {
       fishProgEl.style.width = Math.round((currentHits/requiredHits)*100) + '%';
@@ -1391,14 +1391,14 @@
         updateProg();
         if (typeof sfx !== 'undefined') sfx.fishHit();
         if (currentHits >= requiredHits) { endFishMinigame(true); return; }
-        fishHintEl.textContent = `✅ Đúng nhịp! (${currentHits}/${requiredHits})`;
+        fishHintEl.textContent = `✅ (${currentHits}/${requiredHits})`;
         randomizeZone(); // đổi vị trí vùng xanh cho lượt kéo tiếp theo
       } else {
         currentHits = Math.max(0, currentHits - 1);
         updateProg();
         missCount++;
         if (typeof sfx !== 'undefined') sfx.error();
-        fishHintEl.textContent = `❌ Nhấn lệch nhịp! Cẩn thận, cá sắp sổng (${currentHits}/${requiredHits})`;
+        fishHintEl.textContent = `❌  (${currentHits}/${requiredHits})`;
         if (missCount >= maxMisses) { endFishMinigame(false); return; }
       }
     }
