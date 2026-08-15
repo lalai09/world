@@ -1068,7 +1068,6 @@
     }
     node.hp -= dmg;
     spawnChopFx(node.x, node.y);
-    if (usingRightTool) wearTool(node.type === 'wood' ? 'axe' : 'pickaxe');
 
     if (node.hp <= 0) {
       node.alive = false;
@@ -1076,10 +1075,8 @@
       const n = style.amount[0] + Math.floor(Math.random() * (style.amount[1]-style.amount[0]+1));
       addItem(style.give, n);
       showMessage(`${style.icon} Nhận ${n} ${style.giveIcon} ${style.giveName}!`, 1400);
-      // 25% cơ hội rớt thêm sợi cỏ khi chặt cây
-
-    } else {
-     
+      // Chỉ trừ 1 độ bền khi chặt/đào hết 1 cây hoặc 1 đá
+      if (usingRightTool) wearTool(node.type === 'wood' ? 'axe' : 'pickaxe');
     }
   }
 
