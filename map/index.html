@@ -528,7 +528,7 @@
 
   // ---------- DỮ LIỆU CÂY TRỒNG (thời gian lớn tính bằng giây, sản lượng thu hoạch) ----------
   const CROP_META = {
-    seed_rice: { growTime:400, yieldMin:1, yieldMax:1, harvestId:'rice' }, // 9 phút
+    seed_rice: { growTime:540, yieldMin:1, yieldMax:1, harvestId:'rice' }, // 9 phút
   };
   const SEED_PRIORITY = ['seed_rice']; // thứ tự ưu tiên tự trồng
 
@@ -769,7 +769,9 @@
   const keys = {};
   window.addEventListener('keydown', e => {
     keys[e.key.toLowerCase()] = true;
-    if (e.key.toLowerCase() === 'e') tryInteract();
+    // e.repeat = true khi trình duyệt tự lặp lại phím do GIỮ phím (không phải bấm mới)
+    // -> bỏ qua để giữ phím "e" không đập/đào liên tục không dừng
+    if (e.key.toLowerCase() === 'e' && !e.repeat) tryInteract();
   });
   window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
