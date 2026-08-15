@@ -637,6 +637,7 @@
     renderInventory();
     if (typeof scheduleSave === 'function') scheduleSave();
   }
+  const FOOD_STAMINA = { fish: 35, rice: 20 }; // lượng năng lượng hồi khi ăn
   function renderInventory() {
     const bar = document.getElementById('invBar');
     const entries = Object.entries(inventory).filter(([k,v]) => v > 0);
@@ -948,7 +949,6 @@
   // Ăn Cá 🐟 hoặc Lúa 🌾 (bấm vào icon trong túi đồ) để hồi năng lượng.
   const STAMINA_DRAIN_PER_SEC = 100 / 480; // cạn hết trong khoảng 8 phút nếu chỉ đi lại
   const STAMINA_COST_GATHER = 3;           // mỗi lần chặt/đào/giật cần tốn thêm
-  const FOOD_STAMINA = { fish: 35, rice: 20 }; // lượng năng lượng hồi khi ăn
   function drainStamina(dt) {
     player.stamina = Math.max(0, player.stamina - STAMINA_DRAIN_PER_SEC * dt);
     updateStatusHud();
