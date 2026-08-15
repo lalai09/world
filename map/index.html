@@ -1084,7 +1084,7 @@
       wearTool('rod');
       if (equipped !== 'rod') return; // cần câu vừa hỏng giữa chừng
       if (win) {
-        const n = 1 + (Math.random() < 0.3 ? 1 : 0);
+        const n = 1; // luôn chỉ 1 con mỗi lần câu
         addItem('fish', n);
         showMessage(`🐟 Câu được ${n} con Cá!`, 1600);
         if (typeof sfx !== 'undefined') sfx.fishWin();
