@@ -65,6 +65,14 @@
     color:#fff; font-size:12px; font-weight:bold;
     padding:6px 12px; border-radius:20px; user-select:none;
   }
+  #musicBtn {
+    position:absolute; top:8px; left:100px; z-index:15;
+    width:30px; height:30px; border-radius:50%;
+    background:rgba(0,0,0,.45); border:2px solid rgba(255,255,255,.5);
+    color:#fff; font-size:14px;
+    display:flex; align-items:center; justify-content:center;
+    user-select:none; cursor:pointer;
+  }
   #playerTag {
     position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:5;
     background:rgba(0,0,0,.35); color:#fff; font-size:11px;
@@ -258,7 +266,11 @@
     <canvas id="game" width="960" height="540"></canvas>
 
     <div id="backBtn">⬅ Trở về</div>
+    <div id="musicBtn">🔊</div>
     <div id="playerTag"></div>
+
+    <audio id="bgMusic" loop preload="auto"
+      src="https://opengameart.org/sites/default/files/A%20Brand%20New%20Wisdom.ogg"></audio>
 
     <div id="minimapWrap">
       <canvas id="minimap" width="150" height="150"></canvas>
@@ -547,11 +559,12 @@
   }
   function plantAt(plotIdx) {
     const seedId = SEED_PRIORITY.find(id => (inventory[id]||0) > 0);
-    if (!seedId) { showMessage('🌱 Bạn hết hạt giống rồi! Ghé Cửa hàng mua thêm.', 1800); return; }
+    if (!seedId) { showMessage('🌱 Bạn hết hạt giống rồi! Ghé Cửa hàng mua thêm.', 1800); if (typeof sfx !== 'undefined') sfx.error(); return; }
     inventory[seedId] -= 1;
     farmPlots[plotIdx] = { seed: seedId, plantedAt: Date.now() };
     renderInventory();
     showMessage(`Đã trồng ${ITEM_META[seedId].icon} ${ITEM_META[seedId].name}!`, 1400);
+    if (typeof sfx !== 'undefined') sfx.plant();
     if (typeof scheduleSave === 'function') scheduleSave();
   }
   function harvestAt(plotIdx) {
@@ -562,6 +575,7 @@
     delete farmPlots[plotIdx];
     addItem(meta.harvestId, amount);
     showMessage(`🌾 Thu hoạch được ${amount} ${ITEM_META[meta.harvestId].icon} ${ITEM_META[meta.harvestId].name}!`, 1800);
+    if (typeof sfx !== 'undefined') sfx.harvest();
   }
 
   // ---------- HOTBAR (thanh ô đồ trang bị) ----------
@@ -666,6 +680,7 @@
         payItems({ [s.from]: owned });
         addItem('coin', total);
         showMessage(`Đã bán ${owned} ${s.icon} nhận ${total} 💰!`);
+        if (typeof sfx !== 'undefined') sfx.sell();
         renderShop();
       });
     });
@@ -676,6 +691,7 @@
         payItems(r.cost);
         r.onCraft();
         showMessage(`Đã mua ${r.icon} ${r.name}!`);
+        if (typeof sfx !== 'undefined') sfx.buy();
         renderShop();
       });
     });
@@ -686,6 +702,7 @@
         payItems({ coin: sd.price });
         addItem(sd.id, 1);
         showMessage(`Đã mua ${sd.icon} ${sd.name}!`, 1200);
+        if (typeof sfx !== 'undefined') sfx.buy();
         renderShop();
       });
     });
@@ -1012,6 +1029,7 @@
       if (inZone) {
         currentHits++;
         updateProg();
+        if (typeof sfx !== 'undefined') sfx.fishHit();
         if (currentHits >= requiredHits) { endFishMinigame(true); return; }
         fishHintEl.textContent = `✅ Đúng nhịp! (${currentHits}/${requiredHits})`;
         randomizeZone(); // đổi vị trí vùng xanh cho lượt kéo tiếp theo
@@ -1019,6 +1037,7 @@
         currentHits = Math.max(0, currentHits - 1);
         updateProg();
         missCount++;
+        if (typeof sfx !== 'undefined') sfx.error();
         fishHintEl.textContent = `❌ Nhấn lệch nhịp! Cẩn thận, cá sắp sổng (${currentHits}/${requiredHits})`;
         if (missCount >= maxMisses) { endFishMinigame(false); return; }
       }
@@ -1058,8 +1077,10 @@
         const n = 1 + (Math.random() < 0.3 ? 1 : 0);
         addItem('fish', n);
         showMessage(`🐟 Câu được ${n} con Cá!`, 1600);
+        if (typeof sfx !== 'undefined') sfx.fishWin();
       } else {
         showMessage('💨 Cá đã sổng mất, thử lại nhé!', 1400);
+        if (typeof sfx !== 'undefined') sfx.error();
       }
     }
   }
@@ -1090,12 +1111,14 @@
     }
     node.hp -= dmg;
     spawnChopFx(node.x, node.y);
+    if (node.type === 'wood') sfx.chop(); else sfx.mine();
 
     if (node.hp <= 0) {
       node.alive = false;
       node.respawnAt = Date.now() + style.respawn * 1000;
       const n = style.amount[0] + Math.floor(Math.random() * (style.amount[1]-style.amount[0]+1));
       addItem(style.give, n);
+      sfx.pickup();
       showMessage(`${style.icon} Nhận ${n} ${style.giveIcon} ${style.giveName}!`, 1400);
       // Chỉ trừ 1 độ bền khi chặt/đào hết 1 cây hoặc 1 đá
       if (usingRightTool) wearTool(node.type === 'wood' ? 'axe' : 'pickaxe');
@@ -1922,6 +1945,72 @@
     invBarEl.style.top = (off.y + backBtnEl.offsetHeight + 8) + 'px';
     invBarEl.style.left = off.x + 'px';
   }
+
+  // ---------- NHẠC NỀN ----------
+  const bgMusicEl = document.getElementById('bgMusic');
+  const musicBtnEl = document.getElementById('musicBtn');
+  let musicOn = true;
+  if (bgMusicEl) bgMusicEl.volume = 0.35;
+
+  function tryPlayMusic() {
+    if (!bgMusicEl || !musicOn) return;
+    bgMusicEl.play().catch(() => {});
+  }
+  // Trình duyệt chặn autoplay có âm thanh trước khi người dùng tương tác,
+  // nên bật nhạc ngay lần chạm/gõ phím đầu tiên.
+  function unlockMusicOnce() {
+    tryPlayMusic();
+    window.removeEventListener('pointerdown', unlockMusicOnce);
+    window.removeEventListener('keydown', unlockMusicOnce);
+  }
+  window.addEventListener('pointerdown', unlockMusicOnce);
+  window.addEventListener('keydown', unlockMusicOnce);
+
+  if (musicBtnEl) {
+    musicBtnEl.addEventListener('click', () => {
+      musicOn = !musicOn;
+      musicBtnEl.textContent = musicOn ? '🔊' : '🔇';
+      if (musicOn) tryPlayMusic();
+      else if (bgMusicEl) bgMusicEl.pause();
+    });
+  }
+
+  // ---------- ÂM THANH HIỆU ỨNG (tổng hợp bằng Web Audio API, không cần file) ----------
+  let sfxCtx = null;
+  function getSfxCtx() {
+    if (!sfxCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) sfxCtx = new AC();
+    }
+    if (sfxCtx && sfxCtx.state === 'suspended') sfxCtx.resume().catch(()=>{});
+    return sfxCtx;
+  }
+  // beep đơn giản: tần số, thời lượng (giây), dạng sóng, âm lượng
+  function playTone(freq, dur, type, vol) {
+    const ctx2 = getSfxCtx();
+    if (!ctx2) return;
+    const osc = ctx2.createOscillator();
+    const gain = ctx2.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol != null ? vol : 0.18, ctx2.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + dur);
+    osc.connect(gain).connect(ctx2.destination);
+    osc.start();
+    osc.stop(ctx2.currentTime + dur);
+  }
+  const sfx = {
+    chop:    () => playTone(220, 0.12, 'square', 0.15),
+    mine:    () => playTone(140, 0.14, 'square', 0.18),
+    pickup:  () => { playTone(660, 0.08, 'triangle', 0.14); setTimeout(()=>playTone(880, 0.1, 'triangle', 0.12), 60); },
+    plant:   () => playTone(500, 0.1, 'sine', 0.12),
+    harvest: () => { playTone(520, 0.08, 'triangle', 0.14); setTimeout(()=>playTone(780, 0.12, 'triangle', 0.14), 70); },
+    buy:     () => { playTone(700, 0.07, 'sine', 0.14); setTimeout(()=>playTone(1000, 0.09, 'sine', 0.12), 50); },
+    sell:    () => playTone(430, 0.1, 'sine', 0.14),
+    fishHit: () => playTone(300, 0.08, 'square', 0.16),
+    fishWin: () => { playTone(600, 0.09, 'triangle', 0.16); setTimeout(()=>playTone(900, 0.12, 'triangle', 0.16), 80); setTimeout(()=>playTone(1200, 0.14, 'triangle', 0.14), 160); },
+    error:   () => playTone(160, 0.15, 'sawtooth', 0.12)
+  };
 
   window.addEventListener('resize', layout);
   window.addEventListener('orientationchange', () => setTimeout(layout, 150));
