@@ -3,13 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>in</title>
+  <title>World — Đăng nhập</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     html, body {
       height: 100%;
@@ -17,226 +13,267 @@
     }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+      color: #f4e9d8;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 18px;
       position: fixed;
-      width: 100%;
-      top: 0;
-      left: 0;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 10%, rgba(90, 160, 220, .35), transparent 45%),
+        radial-gradient(ellipse at 80% 90%, rgba(60, 120, 80, .25), transparent 40%),
+        linear-gradient(180deg, #1a2740 0%, #0d1524 45%, #162018 100%);
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(circle at 12% 70%, rgba(76, 175, 80, .12) 0 2px, transparent 3px),
+        radial-gradient(circle at 88% 30%, rgba(255, 255, 255, .08) 0 1.5px, transparent 3px),
+        radial-gradient(circle at 60% 80%, rgba(255, 210, 120, .1) 0 2px, transparent 3px);
+      background-size: 120px 120px, 90px 90px, 150px 150px;
+      pointer-events: none;
+      opacity: .7;
     }
 
     .auth-container {
-      background: #ffffff;
-      border-radius: 16px;
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      position: relative;
       width: 100%;
       max-width: 420px;
-      padding: 40px 36px;
-      position: relative;
+      padding: 28px 26px 24px;
+      border-radius: 18px;
+      border: 3px solid #6e4a28;
+      background:
+        linear-gradient(180deg, rgba(255, 205, 120, .1), transparent 28%),
+        linear-gradient(150deg, #402c1b 0%, #291c11 55%, #1e160f 100%);
+      box-shadow:
+        0 18px 48px rgba(0, 0, 0, .55),
+        inset 0 0 0 1px rgba(255, 255, 255, .06),
+        inset 0 1px 0 rgba(255, 230, 180, .12);
+      overflow: hidden;
+    }
+
+    .auth-container::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, rgba(255, 210, 130, .55), transparent);
+      pointer-events: none;
     }
 
     .auth-header {
       text-align: center;
-      margin-bottom: 24px;
+      margin-bottom: 18px;
     }
 
     .auth-header .logo {
-      width: auto;
-      min-width: 64px;
-      height: 48px;
-      padding: 0 18px;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      border-radius: 12px;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 16px;
-      font-size: 20px;
-      color: white;
-      font-weight: bold;
-      letter-spacing: 0.5px;
+      gap: 8px;
+      min-width: 72px;
+      height: 44px;
+      padding: 0 18px;
+      margin: 0 auto 12px;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: .6px;
+      color: #fff;
+      background: linear-gradient(145deg, #63d270, #2f9e5c);
+      border: 1px solid rgba(255, 255, 255, .28);
+      box-shadow: 0 3px 0 rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .35);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
     }
 
     .auth-header h1 {
-      font-size: 24px;
-      color: #1a1a2e;
-      margin-bottom: 8px;
+      font-size: 22px;
+      color: #fff8eb;
+      margin-bottom: 6px;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, .45);
     }
 
     .auth-header p {
-      color: #6b7280;
-      font-size: 14px;
+      color: rgba(244, 233, 216, .7);
+      font-size: 13px;
     }
 
-    /* Tabs */
     .tabs {
       display: flex;
-      background: #f3f4f6;
-      border-radius: 12px;
-      padding: 4px;
-      margin-bottom: 28px;
+      gap: 6px;
+      background: rgba(0, 0, 0, .28);
+      border: 1px solid rgba(255, 255, 255, .1);
+      border-radius: 14px;
+      padding: 5px;
+      margin-bottom: 18px;
     }
 
     .tab {
       flex: 1;
-      padding: 12px;
+      padding: 11px 8px;
       text-align: center;
-      font-size: 15px;
-      font-weight: 600;
-      color: #6b7280;
+      font-size: 14px;
+      font-weight: 700;
+      color: rgba(244, 233, 216, .55);
       border: none;
       background: transparent;
-      border-radius: 10px;
+      border-radius: 11px;
       cursor: pointer;
-      transition: all 0.25s ease;
+      transition: all .2s ease;
     }
 
     .tab.active {
-      background: #fff;
-      color: #667eea;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      color: #1a2a18;
+      background: linear-gradient(180deg, #ffd97a, #e0a84a);
+      box-shadow: 0 2px 0 rgba(0, 0, 0, .25), inset 0 1px 0 rgba(255, 255, 255, .35);
     }
 
-    .form-group {
-      margin-bottom: 18px;
-    }
+    .form-group { margin-bottom: 14px; }
 
     .form-group label {
       display: block;
-      font-size: 14px;
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #e9cd97;
+      margin-bottom: 7px;
+      letter-spacing: .2px;
     }
 
     .form-group input {
       width: 100%;
-      padding: 12px 16px;
-      border: 1.5px solid #e5e7eb;
-      border-radius: 10px;
+      padding: 12px 14px;
+      border: 1.5px solid rgba(255, 210, 130, .28);
+      border-radius: 12px;
       font-size: 15px;
-      color: #1f2937;
-      transition: all 0.2s ease;
+      color: #fff8eb;
       outline: none;
-      background: #f9fafb;
+      background: rgba(0, 0, 0, .28);
+      transition: border-color .2s, box-shadow .2s, background .2s;
     }
 
     .form-group input:focus {
-      border-color: #667eea;
-      background: #fff;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+      border-color: rgba(99, 210, 112, .7);
+      background: rgba(0, 0, 0, .38);
+      box-shadow: 0 0 0 3px rgba(99, 210, 112, .18);
     }
 
     .form-group input::placeholder {
-      color: #9ca3af;
+      color: rgba(244, 233, 216, .35);
     }
 
     .password-hint {
-      font-size: 12px;
-      color: #9ca3af;
-      margin-top: 6px;
+      font-size: 11px;
+      color: rgba(244, 233, 216, .45);
+      margin-top: 5px;
     }
 
     .options {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 24px;
-      font-size: 14px;
+      margin-bottom: 18px;
+      font-size: 13px;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .remember {
       display: flex;
       align-items: center;
       gap: 8px;
-      color: #4b5563;
+      color: rgba(244, 233, 216, .75);
       cursor: pointer;
+      user-select: none;
     }
 
     .remember input {
-      width: 16px;
-      height: 16px;
-      accent-color: #667eea;
+      width: 15px;
+      height: 15px;
+      accent-color: #63d270;
       cursor: pointer;
     }
 
     .forgot {
-      color: #667eea;
+      color: #ffd97a;
       text-decoration: none;
-      font-weight: 500;
-      transition: color 0.2s;
+      font-weight: 600;
       background: none;
       border: none;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
+      padding: 0;
     }
 
     .forgot:hover {
-      color: #764ba2;
+      color: #fff;
       text-decoration: underline;
     }
 
     .btn-submit {
       width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
+      padding: 13px 14px;
+      border: 1px solid rgba(255, 255, 255, .25);
+      border-radius: 24px;
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
       cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      background: linear-gradient(180deg, #63d270, #3e9e4c);
+      box-shadow: 0 3px 0 rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .3);
+      transition: transform .15s, box-shadow .15s, filter .15s;
     }
 
     .btn-submit:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+      filter: brightness(1.06);
+      transform: translateY(-1px);
     }
 
     .btn-submit:active:not(:disabled) {
-      transform: translateY(0);
+      transform: translateY(1px);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, .28);
     }
 
     .btn-submit:disabled {
-      opacity: 0.7;
+      opacity: .65;
       cursor: not-allowed;
+      filter: grayscale(.2);
     }
 
     .message {
-      padding: 12px 16px;
-      border-radius: 10px;
-      font-size: 14px;
-      margin-bottom: 20px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      margin-bottom: 14px;
       display: none;
       text-align: center;
+      font-weight: 600;
     }
 
     .message.error {
-      background: #fef2f2;
-      color: #dc2626;
-      border: 1px solid #fecaca;
       display: block;
+      background: rgba(180, 40, 40, .22);
+      color: #ffb4b4;
+      border: 1px solid rgba(255, 120, 120, .35);
     }
 
     .message.success {
-      background: #f0fdf4;
-      color: #16a34a;
-      border: 1px solid #bbf7d0;
       display: block;
+      background: rgba(40, 140, 80, .22);
+      color: #9bffd0;
+      border: 1px solid rgba(100, 220, 160, .35);
     }
 
     .divider {
       display: flex;
       align-items: center;
-      margin: 24px 0;
-      color: #9ca3af;
-      font-size: 13px;
+      margin: 18px 0 14px;
+      color: rgba(244, 233, 216, .45);
+      font-size: 12px;
     }
 
     .divider::before,
@@ -244,68 +281,67 @@
       content: '';
       flex: 1;
       height: 1px;
-      background: #e5e7eb;
+      background: linear-gradient(90deg, transparent, rgba(255, 210, 130, .3), transparent);
     }
 
     .divider span {
-      padding: 0 12px;
+      padding: 0 10px;
+      white-space: nowrap;
     }
 
     .social-login {
       display: flex;
-      gap: 12px;
+      gap: 10px;
     }
 
     .social-btn {
       flex: 1;
-      padding: 12px;
-      border: 1.5px solid #e5e7eb;
-      border-radius: 10px;
-      background: #fff;
+      padding: 11px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, .14);
+      background: rgba(255, 255, 255, .06);
+      color: #f4e9d8;
       cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      color: #374151;
+      font-size: 13px;
+      font-weight: 600;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      transition: all 0.2s ease;
+      transition: background .2s, border-color .2s, transform .15s;
     }
 
     .social-btn:hover {
-      background: #f9fafb;
-      border-color: #d1d5db;
+      background: rgba(255, 255, 255, .12);
+      border-color: rgba(255, 255, 255, .28);
     }
 
-    .form-panel {
-      display: none;
-    }
+    .social-btn:active { transform: translateY(1px); }
 
-    .form-panel.active {
-      display: block;
+    .form-panel { display: none; }
+    .form-panel.active { display: block; }
+
+    .foot-hint {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(244, 233, 216, .4);
     }
 
     @media (max-width: 480px) {
-      .auth-container {
-        padding: 32px 24px;
-      }
-
-      .social-login {
-        flex-direction: column;
-      }
+      .auth-container { padding: 24px 18px 20px; }
+      .social-login { flex-direction: column; }
     }
   </style>
 </head>
 <body>
   <div class="auth-container">
     <div class="auth-header">
-      <div class="logo">World</div>
+      <div class="logo">🌍 World</div>
       <h1 id="pageTitle">Đăng nhập</h1>
-      <p id="pageSubtitle">Chào mừng bạn quay trở lại!</p>
+      <p id="pageSubtitle">Chào mừng bạn quay trở lại thế giới!</p>
     </div>
 
-    <!-- Tabs -->
     <div class="tabs">
       <button type="button" class="tab active" data-tab="login">Đăng nhập</button>
       <button type="button" class="tab" data-tab="register">Đăng ký</button>
@@ -313,7 +349,6 @@
 
     <div id="message" class="message"></div>
 
-    <!-- ===== FORM ĐĂNG NHẬP ===== -->
     <div id="loginPanel" class="form-panel active">
       <form id="loginForm">
         <div class="form-group">
@@ -334,11 +369,10 @@
           <button type="button" class="forgot" id="forgotPassword">Quên mật khẩu?</button>
         </div>
 
-        <button type="submit" class="btn-submit" id="btnLogin">Đăng nhập</button>
+        <button type="submit" class="btn-submit" id="btnLogin">Vào thế giới</button>
       </form>
     </div>
 
-    <!-- ===== FORM ĐĂNG KÝ ===== -->
     <div id="registerPanel" class="form-panel">
       <form id="registerForm">
         <div class="form-group">
@@ -357,7 +391,7 @@
           <input type="password" id="confirmPassword" placeholder="Nhập lại mật khẩu" required autocomplete="new-password">
         </div>
 
-        <button type="submit" class="btn-submit" id="btnRegister">Đăng ký</button>
+        <button type="submit" class="btn-submit" id="btnRegister">Tạo tài khoản</button>
       </form>
     </div>
 
@@ -382,13 +416,15 @@
         Facebook
       </button>
     </div>
+
+    <p class="foot-hint">Cùng khám phá · thu thập · xây dựng trong World</p>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
-    import { 
-      getAuth, 
-      signInWithEmailAndPassword, 
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
       createUserWithEmailAndPassword,
       signInWithPopup,
       GoogleAuthProvider,
@@ -433,7 +469,6 @@
       window.location.href = 'map';
     }
 
-    // Elements
     const tabs = document.querySelectorAll('.tab');
     const loginPanel = document.getElementById('loginPanel');
     const registerPanel = document.getElementById('registerPanel');
@@ -443,7 +478,6 @@
     const btnLogin = document.getElementById('btnLogin');
     const btnRegister = document.getElementById('btnRegister');
 
-    // Chuyển tab
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
@@ -454,12 +488,12 @@
           loginPanel.classList.add('active');
           registerPanel.classList.remove('active');
           pageTitle.textContent = 'Đăng nhập';
-          pageSubtitle.textContent = 'Chào mừng bạn quay trở lại!';
+          pageSubtitle.textContent = 'Chào mừng bạn quay trở lại thế giới!';
         } else {
           loginPanel.classList.remove('active');
           registerPanel.classList.add('active');
           pageTitle.textContent = 'Đăng ký';
-          pageSubtitle.textContent = 'Tạo tài khoản mới của bạn';
+          pageSubtitle.textContent = 'Tạo nhân vật mới để bắt đầu hành trình';
         }
       });
     });
@@ -474,12 +508,10 @@
       messageEl.textContent = '';
     }
 
-    // Chuyển tên đăng nhập thành email nội bộ cho Firebase
     function toEmail(username) {
       return username.trim().toLowerCase().replace(/\s+/g, '') + '@world.app';
     }
 
-    // ===== ĐĂNG NHẬP =====
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       clearMessage();
@@ -501,7 +533,7 @@
       const email = toEmail(username);
 
       btnLogin.disabled = true;
-      btnLogin.textContent = 'Đang đăng nhập...';
+      btnLogin.textContent = 'Đang vào thế giới...';
 
       try {
         const persistence = remember ? browserLocalPersistence : browserSessionPersistence;
@@ -529,11 +561,10 @@
         }
         showMessage(msg);
         btnLogin.disabled = false;
-        btnLogin.textContent = 'Đăng nhập';
+        btnLogin.textContent = 'Vào thế giới';
       }
     });
 
-    // ===== ĐĂNG KÝ =====
     document.getElementById('registerForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       clearMessage();
@@ -570,7 +601,7 @@
       const email = toEmail(username);
 
       btnRegister.disabled = true;
-      btnRegister.textContent = 'Đang đăng ký...';
+      btnRegister.textContent = 'Đang tạo tài khoản...';
 
       try {
         await createUserWithEmailAndPassword(auth, email, password);
@@ -588,17 +619,15 @@
         }
         showMessage(msg);
         btnRegister.disabled = false;
-        btnRegister.textContent = 'Đăng ký';
+        btnRegister.textContent = 'Tạo tài khoản';
       }
     });
 
-    // ===== QUÊN MẬT KHẨU =====
     document.getElementById('forgotPassword').addEventListener('click', async () => {
       clearMessage();
       showMessage('Tính năng quên mật khẩu cần email. Hiện tại đang dùng tên đăng nhập nên không hỗ trợ.');
     });
 
-    // ===== GOOGLE =====
     document.getElementById('btnGoogle').addEventListener('click', async () => {
       clearMessage();
       const provider = new GoogleAuthProvider();
@@ -614,7 +643,6 @@
       }
     });
 
-    // ===== FACEBOOK =====
     document.getElementById('btnFacebook').addEventListener('click', async () => {
       clearMessage();
       const provider = new FacebookAuthProvider();
