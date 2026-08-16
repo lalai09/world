@@ -444,6 +444,63 @@
     position:fixed;
     top:0; left:100%;
   }
+
+  /* ---------- MÀN HÌNH CHẾT / HỒI SINH ---------- */
+  #deathOverlay {
+    position:absolute; inset:0; z-index:30;
+    display:none; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 40%, rgba(80,10,20,.55), rgba(0,0,0,.82));
+    backdrop-filter:blur(3px);
+    padding:16px;
+  }
+  #deathOverlay.show { display:flex; }
+  #deathPanel {
+    width:min(340px, 92%);
+    background:
+      linear-gradient(180deg, rgba(255,120,120,.12), transparent 40%),
+      linear-gradient(160deg, #3a1a1a 0%, #1a0e12 100%);
+    border:2px solid rgba(255,120,120,.45);
+    border-radius:16px;
+    padding:22px 18px 18px;
+    color:#ffe8e8;
+    text-align:center;
+    box-shadow:0 16px 40px rgba(0,0,0,.55);
+  }
+  #deathPanel h2 {
+    margin:0 0 8px; font-size:22px; letter-spacing:.3px;
+    text-shadow:0 2px 6px rgba(0,0,0,.5);
+  }
+  #deathPanel p {
+    margin:0 0 14px; font-size:13px; line-height:1.45;
+    color:rgba(255,230,230,.85);
+  }
+  #deathTimer {
+    font-size:28px; font-weight:800; color:#ffd97a;
+    margin:4px 0 16px; text-shadow:0 2px 8px rgba(0,0,0,.5);
+    font-variant-numeric:tabular-nums;
+  }
+  #deathActions {
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .deathBtn {
+    border:1px solid rgba(255,255,255,.25);
+    border-radius:22px; padding:12px 14px;
+    font-size:14px; font-weight:800; color:#fff; cursor:pointer;
+    box-shadow:0 2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .deathBtn.pay {
+    background:linear-gradient(180deg,#ffbe57,#e0862b);
+  }
+  .deathBtn.wait {
+    background:linear-gradient(180deg,#6a7488,#4a5568);
+  }
+  .deathBtn:disabled {
+    opacity:.45; cursor:not-allowed; filter:grayscale(.3);
+  }
+  .deathBtn:active:not(:disabled) { transform:translateY(1px); }
+  #deathHint {
+    margin-top:12px; font-size:11px; color:rgba(255,220,220,.55);
+  }
 </style>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -487,6 +544,18 @@
     <div id="weatherLayer"></div>
 
     <div id="msgBox"></div>
+    <div id="deathOverlay">
+      <div id="deathPanel">
+        <h2>💀 Bạn đã chết</h2>
+        <p>Hết năng lượng quá lâu khiến máu cạn. Hồi sinh bằng <b>100 💰</b> hoặc chờ hết thời gian.</p>
+        <div id="deathTimer">03:00</div>
+        <div id="deathActions">
+          <button type="button" class="deathBtn pay" id="deathPayBtn">Hồi sinh · 100 💰</button>
+          <button type="button" class="deathBtn wait" id="deathWaitBtn" disabled>Đang chờ tự hồi sinh...</button>
+        </div>
+        <div id="deathHint">Mẹo: Ăn 🐟 hoặc 🌾 trước khi năng lượng về 0</div>
+      </div>
+    </div>
     <div id="helpHint">demo</div>
 
     <div id="fishGame">
@@ -1038,35 +1107,142 @@
     frame: 0, frameTimer: 0
   };
 
-  // ---------- HỆ THỐNG NĂNG LƯỢNG (ĐÓI) ----------
-  // Giảm dần theo thời gian + mỗi lần chặt/đào/câu tốn thêm năng lượng.
-  // Hết năng lượng -> nhân vật di chuyển & thao tác chậm hơn (không chết đói).
-  // Ăn Cá 🐟 hoặc Lúa 🌾 (bấm vào icon trong túi đồ) để hồi năng lượng.
-  const STAMINA_DRAIN_PER_SEC = 100 / 480; // cạn hết trong khoảng 8 phút nếu chỉ đi lại
-  const STAMINA_COST_GATHER = 3;           // mỗi lần chặt/đào/giật cần tốn thêm
+  // ---------- SINH TỒN: NĂNG LƯỢNG + ĐÓI / CHẾT ----------
+  // Năng lượng giảm dần; hết năng lượng thì máu tụt dần.
+  // HP về 0 -> chết: trả 100 xu để hồi sinh ngay, hoặc chờ 3 phút.
+  const STAMINA_DRAIN_PER_SEC = 100 / 480; // ~8 phút cạn stamina nếu chỉ đi lại
+  const STAMINA_COST_GATHER = 3;
+  const HP_DRAIN_WHEN_STARVING = 100 / 75; // hết stamina ~75s là chết nếu không ăn
+  const RESPAWN_COIN_COST = 100;
+  const RESPAWN_WAIT_MS = 3 * 60 * 1000; // 3 phút
+  let isDead = false;
+  let deathUntil = 0; // timestamp ms khi được tự hồi sinh
+  let deathWarned = false;
+
+  const deathOverlayEl = document.getElementById('deathOverlay');
+  const deathTimerEl = document.getElementById('deathTimer');
+  const deathPayBtnEl = document.getElementById('deathPayBtn');
+  const deathWaitBtnEl = document.getElementById('deathWaitBtn');
+
+  function formatDeathCountdown(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    return mm + ':' + ss;
+  }
+
   function drainStamina(dt) {
+    if (isDead) return;
     player.stamina = Math.max(0, player.stamina - STAMINA_DRAIN_PER_SEC * dt);
+    // Hết năng lượng + không ăn -> máu tụt
+    if (player.stamina <= 0 && player.hp > 0) {
+      if (!deathWarned) {
+        deathWarned = true;
+        showMessage('⚠️ Hết năng lượng! Ăn ngay kẻo máu tụt...', 2200);
+      }
+      player.hp = Math.max(0, player.hp - HP_DRAIN_WHEN_STARVING * dt);
+      if (player.hp <= 0) {
+        player.hp = 0;
+        enterDeathState();
+      }
+    } else if (player.stamina > 0) {
+      deathWarned = false;
+    }
     updateStatusHud();
   }
   function useStaminaForAction(cost) {
+    if (isDead) return;
     player.stamina = Math.max(0, player.stamina - cost);
     updateStatusHud();
   }
   function staminaSpeedMultiplier() {
-    // 0 năng lượng -> chậm 45%; đầy năng lượng -> tốc độ bình thường
+    if (isDead) return 0;
     return player.stamina <= 0 ? 0.55 : (0.55 + 0.45 * (player.stamina / player.maxStamina));
   }
   function eatFood(itemId) {
+    if (isDead) { showMessage('💀 Bạn đã chết, không thể ăn!', 1200); return; }
     const gain = FOOD_STAMINA[itemId];
     if (!gain) return;
     if ((inventory[itemId]||0) <= 0) { showMessage('Bạn không có gì để ăn món này!', 1200); return; }
     inventory[itemId] -= 1;
     player.stamina = Math.min(player.maxStamina, player.stamina + gain);
+    deathWarned = false;
     renderInventory();
     updateStatusHud();
     showMessage(`😋 Ăn ${ITEM_META[itemId].icon} ${ITEM_META[itemId].name}, hồi ${gain} năng lượng!`, 1400);
     if (typeof sfx !== 'undefined') sfx.harvest();
     if (typeof scheduleSave === 'function') scheduleSave();
+  }
+
+  function enterDeathState() {
+    if (isDead) return;
+    isDead = true;
+    player.hp = 0;
+    deathUntil = Date.now() + RESPAWN_WAIT_MS;
+    if (deathOverlayEl) deathOverlayEl.classList.add('show');
+    updateDeathUI();
+    if (typeof sfx !== 'undefined') sfx.error();
+    showMessage('💀 Bạn đã chết vì kiệt sức!', 2000);
+    if (typeof scheduleSave === 'function') scheduleSave();
+  }
+
+  function updateDeathUI() {
+    if (!isDead) return;
+    const left = Math.max(0, deathUntil - Date.now());
+    if (deathTimerEl) deathTimerEl.textContent = formatDeathCountdown(left);
+    const coins = inventory.coin || 0;
+    if (deathPayBtnEl) {
+      deathPayBtnEl.disabled = coins < RESPAWN_COIN_COST;
+      deathPayBtnEl.textContent = coins >= RESPAWN_COIN_COST
+        ? `Hồi sinh · ${RESPAWN_COIN_COST} 💰`
+        : `Không đủ xu (${coins}/${RESPAWN_COIN_COST})`;
+    }
+    if (deathWaitBtnEl) {
+      if (left <= 0) {
+        deathWaitBtnEl.disabled = false;
+        deathWaitBtnEl.textContent = 'Hồi sinh miễn phí';
+      } else {
+        deathWaitBtnEl.disabled = true;
+        deathWaitBtnEl.textContent = 'Đang chờ tự hồi sinh...';
+      }
+    }
+    if (left <= 0) {
+      // tự mở nút; người chơi bấm hoặc auto-respawn
+      respawnPlayer(false);
+    }
+  }
+
+  function respawnPlayer(paid) {
+    if (!isDead) return;
+    if (paid) {
+      if ((inventory.coin || 0) < RESPAWN_COIN_COST) {
+        showMessage('Không đủ 100 💰 để hồi sinh!', 1400);
+        return;
+      }
+      inventory.coin -= RESPAWN_COIN_COST;
+      renderInventory();
+    } else if (Date.now() < deathUntil) {
+      return; // chưa hết giờ
+    }
+    isDead = false;
+    deathUntil = 0;
+    deathWarned = false;
+    player.hp = player.maxHp;
+    player.stamina = Math.max(40, Math.floor(player.maxStamina * 0.4));
+    if (deathOverlayEl) deathOverlayEl.classList.remove('show');
+    updateStatusHud();
+    showMessage(paid ? '✨ Hồi sinh thành công (−100 💰)!' : '✨ Bạn đã hồi sinh sau khi chờ!', 1800);
+    if (typeof sfx !== 'undefined') sfx.pickup();
+    if (typeof scheduleSave === 'function') scheduleSave();
+  }
+
+  if (deathPayBtnEl) {
+    deathPayBtnEl.addEventListener('click', () => respawnPlayer(true));
+    deathPayBtnEl.addEventListener('touchstart', e => { e.preventDefault(); respawnPlayer(true); });
+  }
+  if (deathWaitBtnEl) {
+    deathWaitBtnEl.addEventListener('click', () => respawnPlayer(false));
+    deathWaitBtnEl.addEventListener('touchstart', e => { e.preventDefault(); respawnPlayer(false); });
   }
 
   // ---------- NGÀY / ĐÊM (đồng bộ giờ thật ngoài đời) ----------
@@ -1212,7 +1388,11 @@
         updateStatusHud();
         if (typeof scheduleSave === 'function') scheduleSave();
         if (typeof sfx !== 'undefined') sfx.error();
-        showMessage('👻 Quái tấn công bạn! Né ra hoặc bấm Dùng để đánh lại.', 1200);
+        if (player.hp <= 0) {
+          enterDeathState();
+        } else {
+          showMessage('👻 Quái tấn công bạn! Né ra hoặc bấm Dùng để đánh lại.', 1200);
+        }
       }
     }
   }
@@ -1353,6 +1533,7 @@
   }
 
   function tryInteract() {
+    if (isDead) return;
     // Ưu tiên -1: nếu đang trong minigame câu cá, nút "Dùng" dùng để bắt nhịp
     if (fishTapHandler) { fishTapHandler(); return; }
 
@@ -1744,6 +1925,17 @@
   let lastTime = performance.now();
 
   function update(dt) {
+    if (isDead) {
+      updateDeathUI();
+      updateCamera();
+      updateChopFx(dt);
+      updateResourceNodes();
+      const night = updateDayNight(dt);
+      updateWeather(dt);
+      updateMonsters(dt, night);
+      updateFarmGrowth();
+      return;
+    }
     // gộp input bàn phím + joystick
     const kv = keyboardVector();
     let dx = kv.dx + joyVec.dx;
@@ -2065,6 +2257,8 @@
       pos: { x: player.x, y: player.y },
       hp: player.hp,
       stamina: player.stamina,
+      isDead: isDead,
+      deathUntil: deathUntil,
       updatedAt: Date.now()
     };
   }
@@ -2096,6 +2290,19 @@
     }
     if (typeof data.stamina === 'number') {
       player.stamina = Math.max(0, Math.min(player.maxStamina, data.stamina));
+    }
+    if (data.isDead && typeof data.deathUntil === 'number') {
+      isDead = true;
+      deathUntil = data.deathUntil;
+      player.hp = 0;
+      if (deathOverlayEl) deathOverlayEl.classList.add('show');
+      updateDeathUI();
+    } else if (typeof data.hp === 'number' && data.hp <= 0) {
+      enterDeathState();
+    } else {
+      isDead = false;
+      deathUntil = 0;
+      if (deathOverlayEl) deathOverlayEl.classList.remove('show');
     }
     return true;
   }
@@ -2252,6 +2459,8 @@
       pos: payload.pos,
       hp: payload.hp,
       stamina: payload.stamina,
+      isDead: payload.isDead,
+      deathUntil: payload.deathUntil,
       updatedAt: firebase.database.ServerValue.TIMESTAMP
     }).catch(()=>{});
   }
