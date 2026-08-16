@@ -1069,27 +1069,50 @@
     if (typeof scheduleSave === 'function') scheduleSave();
   }
 
-  // ---------- NGÀY / ĐÊM ----------
-  const DAY_LENGTH_SEC = 1400; // 1 chu kỳ ngày-đêm đầy đủ = 5 phút
-  let worldClock = 0; // 0..DAY_LENGTH_SEC, dùng chung logic sáng/tối
+  // ---------- NGÀY / ĐÊM (đồng bộ giờ thật ngoài đời) ----------
+  // Dùng giờ máy người chơi: ban ngày ~6:00–18:00, ban đêm 18:00–6:00.
+  // Chạng vạng sáng 5:00–7:00, chạng vạng tối 17:00–19:00.
+  function getRealHourFloat() {
+    const now = new Date();
+    return now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+  }
+  function formatClock() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return hh + ':' + mm;
+  }
   function isNightTime() {
-    const t = (worldClock % DAY_LENGTH_SEC) / DAY_LENGTH_SEC; // 0..1
-    return t > 0.6 || t < 0.08; // khoảng 42% chu kỳ là ban đêm
+    const h = getRealHourFloat();
+    return h < 6 || h >= 18;
   }
   function updateDayNight(dt) {
-    worldClock += dt;
-    const t = (worldClock % DAY_LENGTH_SEC) / DAY_LENGTH_SEC;
+    const h = getRealHourFloat();
     const night = isNightTime();
-    // độ tối mượt dần thay vì bật/tắt đột ngột
+    // độ tối mượt theo giờ thật
     let darkness = 0;
-    if (t > 0.55 && t <= 0.65) darkness = (t-0.55)/0.10;       // chạng vạng -> tối dần
-    else if (t > 0.65 && t <= 0.98) darkness = 1;               // ban đêm
-    else if (t > 0.98 || t <= 0.08) darkness = t > 0.98 ? 1-((t-0.98)/0.10) : 1-(t/0.08);
+    if (h >= 5 && h < 7) {
+      // bình minh: tối -> sáng
+      darkness = 1 - (h - 5) / 2;
+    } else if (h >= 7 && h < 17) {
+      darkness = 0;
+    } else if (h >= 17 && h < 19) {
+      // hoàng hôn: sáng -> tối
+      darkness = (h - 17) / 2;
+    } else {
+      // ban đêm
+      darkness = 1;
+    }
     darkness = Math.max(0, Math.min(1, darkness));
     if (nightOverlayEl) nightOverlayEl.style.background = `rgba(8,10,35,${(darkness*0.62).toFixed(2)})`;
     if (dayNightIconEl && dayNightTextEl) {
-      dayNightIconEl.textContent = night ? '🌙' : '☀️';
-      dayNightTextEl.textContent = night ? 'Ban đêm' : 'Ban ngày';
+      let icon = '☀️';
+      let label = 'Ban ngày';
+      if (h >= 5 && h < 7) { icon = '🌅'; label = 'Bình minh'; }
+      else if (h >= 17 && h < 19) { icon = '🌇'; label = 'Hoàng hôn'; }
+      else if (night) { icon = '🌙'; label = 'Ban đêm'; }
+      dayNightIconEl.textContent = icon;
+      dayNightTextEl.textContent = label + ' · ' + formatClock();
     }
     return night;
   }
