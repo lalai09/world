@@ -1210,6 +1210,7 @@
         m.hitCooldown = 1.1;
         player.hp = Math.max(0, player.hp - 8);
         updateStatusHud();
+        if (typeof scheduleSave === 'function') scheduleSave();
         if (typeof sfx !== 'undefined') sfx.error();
         showMessage('👻 Quái tấn công bạn! Né ra hoặc bấm Dùng để đánh lại.', 1200);
       }
@@ -2165,6 +2166,7 @@
       const ok = applySaveData(data);
       renderInventory();
       renderHotbar();
+      if (typeof updateStatusHud === 'function') updateStatusHud();
       progressReady = true;
       if (ok) {
         showMessage('☁️ Đã tải tiến trình' + (fromLabel ? ' (' + fromLabel + ')' : ''), 1600);
@@ -2197,12 +2199,14 @@
             applySaveData(remote);
             renderInventory();
             renderHotbar();
+            if (typeof updateStatusHud === 'function') updateStatusHud();
             writeLocalSave(myKey, buildSavePayload());
           }
         } else if (remote && !localData) {
           applySaveData(remote);
           renderInventory();
           renderHotbar();
+          if (typeof updateStatusHud === 'function') updateStatusHud();
           writeLocalSave(myKey, buildSavePayload());
         }
         return;
@@ -2246,6 +2250,8 @@
       tools: payload.tools,
       farm: payload.farm,
       pos: payload.pos,
+      hp: payload.hp,
+      stamina: payload.stamina,
       updatedAt: firebase.database.ServerValue.TIMESTAMP
     }).catch(()=>{});
   }
