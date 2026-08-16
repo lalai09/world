@@ -445,6 +445,68 @@
     top:0; left:100%;
   }
 
+
+  /* ---------- THÀNH TỰU (NÚT GỌN + PANEL KHI BẤM) ---------- */
+  #achToggle {
+    position:absolute; top:8px; right:268px; z-index:12;
+    display:flex; align-items:center; gap:6px;
+    background:rgba(0,0,0,.4); border:2px solid rgba(255,255,255,.45);
+    color:#fff; font-size:12px; font-weight:800;
+    padding:6px 11px; border-radius:18px;
+    cursor:pointer; user-select:none;
+    box-shadow:0 2px 8px rgba(0,0,0,.35);
+  }
+  #achToggle:active { transform:scale(.96); }
+  #achToggle .achBadge {
+    min-width:16px; height:16px; padding:0 4px;
+    border-radius:999px; background:#ff4d5e; border:1.5px solid #fff;
+    font-size:9px; font-weight:800; color:#fff;
+    display:none; align-items:center; justify-content:center;
+  }
+  #achToggle .achBadge.show { display:flex; }
+  #achPanel {
+    position:absolute; top:44px; right:268px; z-index:13;
+    width:220px;
+    display:none; flex-direction:column; gap:7px;
+    pointer-events:auto;
+  }
+  #achPanel.open { display:flex; }
+  .achCard {
+    background:rgba(255,255,255,.94);
+    border:2.5px solid #2a2a2a;
+    border-radius:16px;
+    padding:8px 10px 7px;
+    box-shadow:0 4px 14px rgba(0,0,0,.28);
+    color:#222;
+    font-family:'Segoe UI', system-ui, Arial, sans-serif;
+  }
+  .achTop {
+    display:flex; align-items:center; justify-content:space-between;
+    gap:6px; margin-bottom:5px;
+  }
+  .achTitle {
+    font-size:11px; font-weight:800; color:#1a1a1a;
+    display:flex; align-items:center; gap:4px;
+  }
+  .achReward {
+    font-size:10px; font-weight:700; color:#2e9e5c;
+    white-space:nowrap;
+  }
+  .achReward.done { color:#888; }
+  .achBarTrack {
+    height:12px; border-radius:999px;
+    background:#e8e8e8; border:2px solid #2a2a2a;
+    overflow:hidden; position:relative;
+  }
+  .achBarFill {
+    height:100%; width:0%;
+    background:linear-gradient(90deg, #f0c93a, #f5d76e);
+    border-radius:999px;
+    transition:width .35s ease;
+  }
+  .achMeta {
+    margin-top:4px; font-size:10px; font-weight:600; color:#444;
+  }
   /* ---------- MÀN HÌNH CHẾT / HỒI SINH ---------- */
   #deathOverlay {
     position:absolute; inset:0; z-index:30;
@@ -539,6 +601,33 @@
         <div class="statBarWrap"><div class="statBarFill" id="stamFill"></div></div>
       </div>
       <div id="dayNightBadge"><span id="dayNightIcon">☀️</span><span id="dayNightText">Ban ngày</span><span id="weatherIcon"></span></div>
+    </div>
+    <div id="achToggle" title="Thành tựu">🏆 Thành tựu<span class="achBadge" id="achBadge"></span></div>
+    <div id="achPanel">
+      <div class="achCard" data-ach="wood">
+        <div class="achTop">
+          <div class="achTitle">🌳 Chặt cây</div>
+          <div class="achReward" id="achReward_wood">+50 xu (cấp 1)</div>
+        </div>
+        <div class="achBarTrack"><div class="achBarFill" id="achFill_wood"></div></div>
+        <div class="achMeta" id="achMeta_wood">Đã tích lũy: 0 / 50</div>
+      </div>
+      <div class="achCard" data-ach="stone">
+        <div class="achTop">
+          <div class="achTitle">🪨 Đào đá</div>
+          <div class="achReward" id="achReward_stone">+50 xu (cấp 1)</div>
+        </div>
+        <div class="achBarTrack"><div class="achBarFill" id="achFill_stone"></div></div>
+        <div class="achMeta" id="achMeta_stone">Đã tích lũy: 0 / 50</div>
+      </div>
+      <div class="achCard" data-ach="fish">
+        <div class="achTop">
+          <div class="achTitle">🐟 Câu cá</div>
+          <div class="achReward" id="achReward_fish">+50 xu (cấp 1)</div>
+        </div>
+        <div class="achBarTrack"><div class="achBarFill" id="achFill_fish"></div></div>
+        <div class="achMeta" id="achMeta_fish">Đã tích lũy: 0 / 50</div>
+      </div>
     </div>
     <div id="nightOverlay"></div>
     <div id="weatherLayer"></div>
@@ -817,7 +906,128 @@
       el.addEventListener('click', () => eatFood(el.dataset.eat));
     });
   }
-  renderInventory();
+
+  // ---------- THÀNH TỰU: CHẶT CÂY / ĐÀO ĐÁ / CÂU CÁ ----------
+  // Mốc: 50, 500, 1000, 5000 — mỗi mốc thưởng xu tăng dần.
+  const ACH_THRESHOLDS = [50, 500, 1000, 5000];
+  const ACH_REWARDS = [50, 100, 250, 500]; // xu thưởng theo cấp 1..4
+  const ACH_LABELS = {
+    wood: { icon: '🌳', name: 'Chặt cây' },
+    stone: { icon: '🪨', name: 'Đào đá' },
+    fish: { icon: '🐟', name: 'Câu cá' }
+  };
+  const achStats = { wood: 0, stone: 0, fish: 0 };
+  // số mốc đã nhận thưởng (0..4) cho mỗi loại
+  const achClaimed = { wood: 0, stone: 0, fish: 0 };
+
+  function getAchProgress(count) {
+    // Trả về { levelDone, nextNeed, into, pct, maxed }
+    let prev = 0;
+    for (let i = 0; i < ACH_THRESHOLDS.length; i++) {
+      const need = ACH_THRESHOLDS[i];
+      if (count < need) {
+        return {
+          levelDone: i,
+          nextNeed: need,
+          into: count - prev,
+          span: need - prev,
+          pct: Math.max(0, Math.min(1, (count - prev) / (need - prev))),
+          maxed: false
+        };
+      }
+      prev = need;
+    }
+    return {
+      levelDone: ACH_THRESHOLDS.length,
+      nextNeed: ACH_THRESHOLDS[ACH_THRESHOLDS.length - 1],
+      into: ACH_THRESHOLDS[ACH_THRESHOLDS.length - 1],
+      span: ACH_THRESHOLDS[ACH_THRESHOLDS.length - 1],
+      pct: 1,
+      maxed: true
+    };
+  }
+
+  function renderAchievements() {
+    for (const key of ['wood', 'stone', 'fish']) {
+      const count = achStats[key] || 0;
+      const p = getAchProgress(count);
+      const fill = document.getElementById('achFill_' + key);
+      const meta = document.getElementById('achMeta_' + key);
+      const reward = document.getElementById('achReward_' + key);
+      if (fill) fill.style.width = Math.round(p.pct * 100) + '%';
+      if (meta) {
+        if (p.maxed) meta.textContent = `Đã tích lũy: ${count} (hoàn thành)`;
+        else meta.textContent = `Đã tích lũy: ${count} / ${p.nextNeed}`;
+      }
+      if (reward) {
+        if (p.maxed) {
+          reward.textContent = '✓ Max';
+          reward.classList.add('done');
+        } else {
+          const nextLv = p.levelDone + 1;
+          const nextReward = ACH_REWARDS[p.levelDone] || 0;
+          reward.textContent = `+${nextReward} xu (cấp ${nextLv})`;
+          reward.classList.remove('done');
+        }
+      }
+    }
+  }
+
+  function claimAchRewards(key) {
+    const count = achStats[key] || 0;
+    let claimed = achClaimed[key] || 0;
+    let totalGain = 0;
+    let lastLv = claimed;
+    while (claimed < ACH_THRESHOLDS.length && count >= ACH_THRESHOLDS[claimed]) {
+      totalGain += ACH_REWARDS[claimed];
+      lastLv = claimed + 1;
+      claimed++;
+    }
+    if (totalGain > 0) {
+      achClaimed[key] = claimed;
+      addItem('coin', totalGain);
+      const label = ACH_LABELS[key];
+      showMessage(`${label.icon} Thành tựu ${label.name} cấp ${lastLv}! +${totalGain} 💰`, 2200);
+      if (typeof sfx !== 'undefined') sfx.buy();
+      if (typeof scheduleSave === 'function') scheduleSave();
+      const badge = document.getElementById('achBadge');
+      const panel = document.getElementById('achPanel');
+      if (badge && panel && !panel.classList.contains('open')) {
+        badge.textContent = '!';
+        badge.classList.add('show');
+      }
+    }
+    renderAchievements();
+  }
+
+  function addAchProgress(key, amount) {
+    if (!ACH_LABELS[key] || !(amount > 0)) return;
+    achStats[key] = (achStats[key] || 0) + amount;
+    claimAchRewards(key);
+  }
+
+  function toggleAchPanel() {
+    const panel = document.getElementById('achPanel');
+    if (!panel) return;
+    panel.classList.toggle('open');
+    const badge = document.getElementById('achBadge');
+    if (badge && panel.classList.contains('open')) badge.classList.remove('show');
+  }
+  const achToggleEl = document.getElementById('achToggle');
+  if (achToggleEl) {
+    achToggleEl.addEventListener('click', e => { e.stopPropagation(); toggleAchPanel(); });
+    achToggleEl.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); toggleAchPanel(); });
+  }
+  // Bấm ra ngoài để đóng
+  document.addEventListener('click', e => {
+    const panel = document.getElementById('achPanel');
+    const btn = document.getElementById('achToggle');
+    if (!panel || !panel.classList.contains('open')) return;
+    if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
+    panel.classList.remove('open');
+  });
+
+  renderAchievements();
 
   // ---------- CỬA HÀNG: BÁN TÀI NGUYÊN & MUA ĐỒ ----------
   // Bán gỗ/đá lấy xu, rồi dùng xu mua công cụ & công trình
@@ -1737,6 +1947,7 @@
       if (win) {
         const n = 1; // luôn chỉ 1 con mỗi lần câu
         addItem('fish', n);
+        addAchProgress('fish', 1);
         showMessage(`🐟 Câu được ${n} con Cá!`, 1600);
         if (typeof sfx !== 'undefined') sfx.fishWin();
       } else {
@@ -1787,6 +1998,8 @@
       node.respawnAt = Date.now() + style.respawn * 1000;
       const n = style.amount[0] + Math.floor(Math.random() * (style.amount[1]-style.amount[0]+1));
       addItem(style.give, n);
+      // Đếm thành tựu theo số lần phá xong 1 cây/đá (không theo số vật phẩm)
+      if (node.type === 'wood' || node.type === 'stone') addAchProgress(node.type, 1);
       sfx.pickup();
       showMessage(`${style.icon} Nhận ${n} ${style.giveIcon} ${style.giveName}!`, 1400);
       // Chỉ trừ 1 độ bền khi chặt/đào hết 1 cây hoặc 1 đá
@@ -2259,6 +2472,8 @@
       stamina: player.stamina,
       isDead: isDead,
       deathUntil: deathUntil,
+      achStats: Object.assign({}, achStats),
+      achClaimed: Object.assign({}, achClaimed),
       updatedAt: Date.now()
     };
   }
@@ -2291,6 +2506,17 @@
     if (typeof data.stamina === 'number') {
       player.stamina = Math.max(0, Math.min(player.maxStamina, data.stamina));
     }
+    if (data.achStats && typeof data.achStats === 'object') {
+      achStats.wood = Number(data.achStats.wood) || 0;
+      achStats.stone = Number(data.achStats.stone) || 0;
+      achStats.fish = Number(data.achStats.fish) || 0;
+    }
+    if (data.achClaimed && typeof data.achClaimed === 'object') {
+      achClaimed.wood = Number(data.achClaimed.wood) || 0;
+      achClaimed.stone = Number(data.achClaimed.stone) || 0;
+      achClaimed.fish = Number(data.achClaimed.fish) || 0;
+    }
+    if (typeof renderAchievements === 'function') renderAchievements();
     if (data.isDead && typeof data.deathUntil === 'number') {
       isDead = true;
       deathUntil = data.deathUntil;
@@ -2461,6 +2687,8 @@
       stamina: payload.stamina,
       isDead: payload.isDead,
       deathUntil: payload.deathUntil,
+      achStats: payload.achStats,
+      achClaimed: payload.achClaimed,
       updatedAt: firebase.database.ServerValue.TIMESTAMP
     }).catch(()=>{});
   }
